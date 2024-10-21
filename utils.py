@@ -1,6 +1,7 @@
 import gzip
 import pickle
 import cupy as cp
+import torch
 
 def training(forward_pass, backward_pass, learning_rate):
     pass
@@ -9,13 +10,13 @@ def one_hot_encoded(expected_array):
     number_of_classes = cp.unique(expected_array).size
     one_hot_encoded = cp.eye(number_of_classes)[expected_array]
 
-    return one_hot_encoded
+    return torch.tensor(one_hot_encoded, dtype=torch.float32)
 
 def load_data_to_memory(file_name: str):
     with (gzip.open(file_name, 'rb')) as file:
         ((training_image_array, training_label_array), (validation_image_array, validation_label_array), _) = pickle.load(file, encoding='latin-1')
 
-    return (cp.array(training_image_array, dtype=float), one_hot_encoded(cp.array(training_label_array))), (cp.array(validation_image_array, dtype=float), one_hot_encoded(cp.array(validation_label_array)))
+    return (torch.tensor(training_image_array, dtype=torch.float32), one_hot_encoded(cp.array(training_label_array))), (cp.array(validation_image_array, dtype=torch.float32), one_hot_encoded(torch.tensor(validation_label_array)))
 
 def dataloader(samples, batch_size, shuffle):
     training_samples = samples[0]
