@@ -68,8 +68,8 @@ def neural_network(network_architecture: list):
             layer_neurons_activation = neurons_activations[layer_neurons_idx]
             layer_stress = layers_stress[-(layer_neurons_idx+2)]
 
-            layer_axons -= learning_rate * cp.dot(layer_neurons_activation.transpose(), layer_stress)
-            layer_dentrites -= learning_rate * cp.sum(layer_stress, axis=0)
+            layer_axons += learning_rate * cp.dot(layer_neurons_activation.transpose(), layer_stress)
+            layer_dentrites += learning_rate * cp.sum(layer_stress, axis=0)
 
     def training_run(training_loader, loss_function, learning_rate):
         per_batch_stress = []
