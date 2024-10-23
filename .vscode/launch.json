@@ -17,6 +17,13 @@
             "request": "launch",
             "program": "./main.py",
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Python Debugger: Runner File",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./runner_test.py",
+            "console": "integratedTerminal"
         }
     ]
 }

@@ -1,5 +1,5 @@
 import torch
-from model_v1.model import neural_network
+from model_v2.model import neural_network
 from mlp_torch_model.model import MlpNetwork
 from torch.utils.data import DataLoader
 from utils import load_data_to_memory
@@ -11,26 +11,22 @@ def main():
     BATCH_SIZE = 2098
     IMAGE_WIDTH = 28
     IMAGE_HEIGHT = 28
-    LEARNING_RATE = 0.9
+    LEARNING_RATE = 0.01
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
-    NETWORK_ARCH = [INPUT_DATA_FEATURE_SIZE, 2000, 2000, 10]
+    NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 2000, 2000, 10]
     LOSS_FUNCTION = torch.nn.MSELoss()
-    
-    # Use to transform image for TORCH based model
-    torch_based_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.1307, ), (0.3081,))])
-    # Use to transfrom image for CUPY based model
-    cupy_based_transform = transforms.Compose([transforms.Normalize((0.1307, ), (0.3081,))])
+    TRANSFORM = transforms.Compose([transforms.ToTensor()])
 
-    training_dataset = datasets.MNIST('./training-data', download=True, train=True, transform=torch_based_transform)
-    validation_dataset = datasets.MNIST('./training-data', download=True, train=False, transform=torch_based_transform)
+    training_dataset = datasets.MNIST('./training-data', download=True, train=True, transform=TRANSFORM)
+    validation_dataset = datasets.MNIST('./training-data', download=True, train=False, transform=TRANSFORM)
     training_dataloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-    # # # TORCH Model
-    MlpNetwork(network_architecture=NETWORK_ARCH).runner(epochs=EPOCHS, training_loader=training_dataloader, validation_loader=validation_dataloader, loss_function=LOSS_FUNCTION,
-                      learning_rate=LEARNING_RATE)
+    # # # # TORCH Model
+    # MlpNetwork(network_architecture=NETWORK_ARCH).runner(epochs=EPOCHS, training_loader=training_dataloader, validation_loader=validation_dataloader, loss_function=LOSS_FUNCTION,
+    #                   learning_rate=LEARNING_RATE)
 
     # CUPY Model
-    # runner = neural_network([784, 2000, 2000, 10])
-    # runner(EPOCHS, training_dataloader, validation_dataloader, LEARNING_RATE)
+    runner = neural_network(network_architecture=NETWORK_ARCHITECTURE)
+    runner(EPOCHS, training_dataloader, validation_dataloader, LOSS_FUNCTION, LEARNING_RATE)
 main()
