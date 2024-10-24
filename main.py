@@ -11,10 +11,10 @@ def main():
     BATCH_SIZE = 2098
     IMAGE_WIDTH = 28
     IMAGE_HEIGHT = 28
-    LEARNING_RATE = 0.01
+    LEARNING_RATE = 0.001
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
     NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 2000, 2000, 10]
-    LOSS_FUNCTION = torch.nn.MSELoss()
+    LOSS_FUNCTION = torch.nn.CrossEntropyLoss()
     TRANSFORM = transforms.Compose([transforms.ToTensor()])
 
     training_dataset = datasets.MNIST('./training-data', download=True, train=True, transform=TRANSFORM)
@@ -23,7 +23,7 @@ def main():
     validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
     # # # # TORCH Model
-    # MlpNetwork(network_architecture=NETWORK_ARCH).runner(epochs=EPOCHS, training_loader=training_dataloader, validation_loader=validation_dataloader, loss_function=LOSS_FUNCTION,
+    # MlpNetwork(network_architecture=NETWORK_ARCHITECTURE).runner(epochs=EPOCHS, training_loader=training_dataloader, validation_loader=validation_dataloader, loss_function=LOSS_FUNCTION,
     #                   learning_rate=LEARNING_RATE)
 
     # CUPY Model
