@@ -81,6 +81,8 @@ def neural_network(network_architecture: list):
             update_axons_and_dentrites_forward_layers(neurons_stress, forward_activations, learning_rate)
             update_axons_and_dentrites_backward_layers(neurons_stress, backward_activations, learning_rate)
             per_batch_stress.append(average_layer_stress)
+        
+        return cp.mean(cp.array(per_batch_stress))
 
     def test_run(dataloader):
         per_batch_accuracy = []
@@ -112,7 +114,7 @@ def neural_network(network_architecture: list):
         for indices in wrong_samples: print(f"Digit Image is: {RED}{model_expected_prediction[indices]}{RESET} Model Predictions: {RED}{model_prediction[indices]}{RESET}")
 
         return cp.mean(cp.array(per_batch_accuracy)).item()
-    
+
     def runner(epochs, training_loader, validation_loader, loss_function, learning_rate):
         for epoch in range(epochs):
             # Training
