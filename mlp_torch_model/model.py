@@ -10,8 +10,8 @@ class MlpNetwork(torch.nn.Module):
         self.device = "cuda"
         self.network_layers = nn.ModuleList(
             nn.Sequential(
-                nn.Linear(network_architecture[idx], network_architecture[idx+1], device='cuda'),
-                nn.LeakyReLU() if idx != len(network_architecture)-2 else nn.Softmax(dim=-1)
+                nn.Linear(network_architecture[idx], network_architecture[idx+1], bias=False, device='cuda'),
+                # nn.LeakyReLU() if idx != len(network_architecture)-2 else nn.Softmax(dim=-1)
             )
             for idx in range(len(network_architecture)-1)
         )
@@ -22,7 +22,7 @@ class MlpNetwork(torch.nn.Module):
             previous_neurons = layer(previous_neurons)
 
         return previous_neurons
-    
+
     def training_run(self, training_loader, loss_function, learning_rate):
         optimizer = torch.optim.SGD(self.parameters(), lr=learning_rate)
         per_batch_loss = []
