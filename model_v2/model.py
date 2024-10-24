@@ -2,13 +2,15 @@ import torch
 import cupy as cp
 from features import GREEN, RED, RESET
 from nn_utils.activation_functions import leaky_relu, softmax
-from cupy_utils.utils import axons_and_dentrites_initialization, one_hot
+from nn_utils.loss_functions import cross_entropy_loss
+from cupy_utils.utils import axons_initialization, dentrites_initialization, one_hot
 
 def neural_network(network_architecture: list):
     forward_layers_axons = []
     forward_layers_dentrites = []
     for feature_size_idx in range(len(network_architecture)-1):
-        forward_axons, forward_dentrites = axons_and_dentrites_initialization(network_architecture[feature_size_idx], network_architecture[feature_size_idx+1])
+        forward_axons = axons_initialization(network_architecture[feature_size_idx], network_architecture[feature_size_idx+1])
+        forward_dentrites = dentrites_initialization(network_architecture[feature_size_idx+1]) 
         forward_layers_axons.append(forward_axons)
         forward_layers_dentrites.append(forward_dentrites)
 
@@ -16,7 +18,8 @@ def neural_network(network_architecture: list):
     backward_layers_dentrites = []
     reverse_network_architecture = network_architecture[::-1]
     for feature_size_idx in range(len(reverse_network_architecture)-1):
-        backward_axons, backward_dentrites = axons_and_dentrites_initialization(reverse_network_architecture[feature_size_idx], reverse_network_architecture[feature_size_idx+1])
+        backward_axons = axons_initialization(reverse_network_architecture[feature_size_idx], reverse_network_architecture[feature_size_idx+1])
+        backward_dentrites = dentrites_initialization(network_architecture[feature_size_idx+1])
         backward_layers_axons.append(backward_axons)
         backward_layers_dentrites.append(backward_dentrites)
 
@@ -25,10 +28,11 @@ def neural_network(network_architecture: list):
         neurons_activations = [neurons]
         for neurons_layer_idx in range(len(network_architecture)-1):
             forward_last_layer = len(network_architecture)-2 == neurons_layer_idx
-            if not forward_last_layer:
-                neurons = leaky_relu(cp.dot(neurons, forward_layers_axons[neurons_layer_idx]) + forward_layers_dentrites[neurons_layer_idx])
-            else:
-                neurons = softmax(cp.dot(neurons, forward_layers_axons[neurons_layer_idx]) + forward_layers_dentrites[neurons_layer_idx])
+            neurons = cp.dot(neurons, forward_layers_axons[neurons_layer_idx])
+            # if not forward_last_layer:
+            #     neurons = leaky_relu(cp.dot(neurons, forward_layers_axons[neurons_layer_idx]))
+            # else:
+            #     neurons = softmax(cp.dot(neurons, forward_layers_axons[neurons_layer_idx]))
             neurons_activations.append(neurons)
         return neurons_activations
 
@@ -37,39 +41,40 @@ def neural_network(network_architecture: list):
         neurons_activations = [neurons]
         for neurons_layer_idx in range(len(network_architecture)-1):
             backward_last_layer = len(reverse_network_architecture)-2 == neurons_layer_idx
-            if not backward_last_layer:
-                neurons = leaky_relu(cp.dot(neurons, backward_layers_axons[neurons_layer_idx]) + backward_dentrites[neurons_layer_idx])
-            else:
-                neurons = softmax(cp.dot(neurons, backward_layers_axons[neurons_layer_idx]) + backward_dentrites[neurons_layer_idx])
+            neurons = cp.dot(neurons, backward_layers_axons[neurons_layer_idx])
+            # if not backward_last_layer:
+            #     neurons = leaky_relu(cp.dot(neurons, backward_layers_axons[neurons_layer_idx]))
+
+            # else:
+            #     neurons = softmax(cp.dot(neurons, backward_layers_axons[neurons_layer_idx]))
             neurons_activations.append(neurons)
         return neurons_activations
 
     def calculate_network_stress(forward_activations, backward_activations, loss_function):
-        loss_func = torch.nn.MSELoss(reduction='none')
         layers_neurons_stress = []
-        each_layer_stress = []
-        for each_layer_neurons_activation in range(len(network_architecture)):
-            neurons_stress = loss_func(torch.tensor(forward_activations[each_layer_neurons_activation]), torch.tensor(backward_activations[-(each_layer_neurons_activation+1)]))
-            average_neurons_stress = loss_function(torch.tensor(forward_activations[each_layer_neurons_activation]), torch.tensor(backward_activations[-(each_layer_neurons_activation+1)]))
-            layers_neurons_stress.append(cp.array(neurons_stress))
-            each_layer_stress.append(average_neurons_stress)
-        return layers_neurons_stress, cp.mean(cp.array(each_layer_stress)).item()
+        each_layer_avg_stress = []
+        for activation_idx in range(len(network_architecture)):
+            neurons_stress = forward_activations[-(activation_idx+1)] - backward_activations[activation_idx]
+
+            layers_neurons_stress.append(neurons_stress)
+            each_layer_avg_stress.append(cp.mean(neurons_stress))
+        return layers_neurons_stress, cp.mean(cp.array(each_layer_avg_stress)).item()
 
     def update_axons_and_dentrites_forward_layers(layers_stress, neurons_activations, learning_rate):
-        for layer_neurons_idx, (layer_axons, layer_dentrites) in enumerate(zip(forward_layers_axons, forward_layers_dentrites)):
-            layer_neurons_activation = neurons_activations[layer_neurons_idx]
-            layer_stress = layers_stress[layer_neurons_idx+1]
+        for layer_neurons_idx, (layer_axons, layer_dentrites) in enumerate(zip(forward_layers_axons[::-1], forward_layers_dentrites)):
+            layer_neurons_activation = neurons_activations[-(layer_neurons_idx+2)]
+            layer_stress = layers_stress[layer_neurons_idx]
 
             layer_axons -= learning_rate * cp.dot(layer_neurons_activation.transpose(), layer_stress)
-            layer_dentrites -= learning_rate * cp.sum(layer_stress, axis=0)
+            # layer_dentrites -= learning_rate * cp.sum(layer_stress, axis=0)
 
     def update_axons_and_dentrites_backward_layers(layers_stress, neurons_activations, learning_rate):
-        for layer_neurons_idx, (layer_axons, layer_dentrites) in enumerate(zip(backward_layers_axons, backward_layers_dentrites)):
-            layer_neurons_activation = neurons_activations[layer_neurons_idx]
+        for layer_neurons_idx, (layer_axons, layer_dentrites) in enumerate(zip(backward_layers_axons[::-1], backward_layers_dentrites)):
+            layer_neurons_activation = neurons_activations[-(layer_neurons_idx+1)]
             layer_stress = layers_stress[-(layer_neurons_idx+2)]
-
-            layer_axons += learning_rate * cp.dot(layer_neurons_activation.transpose(), layer_stress)
-            layer_dentrites += learning_rate * cp.sum(layer_stress, axis=0)
+            layer_axons = layer_axons.transpose()
+            layer_axons -= learning_rate * cp.dot(layer_neurons_activation.transpose(), layer_stress)
+            # layer_dentrites += learning_rate * cp.sum(layer_stress, axis=0)
 
     def training_run(training_loader, loss_function, learning_rate):
         per_batch_stress = []
