@@ -14,14 +14,10 @@ def dentrites_initialization(output_feature):
     return bias
 
 def forward_pass_architecture(network_features_size: list):
-    # Shape -> (Total connection, maximum value in network_feature_size, maximum value in network_feature_size)
     layers_axons = []
-    # Shape -> (Total activation not include the input, maximum value in network_feature_size)
     layers_dentrites = []
     for feature_size_idx in range(len(network_features_size)-1):
-        # [connection index, fill the value until to a certain feature_size, fill the value until to a certain feature_size]
         axons = axons_initialization(network_features_size[feature_size_idx], network_features_size[feature_size_idx+1])
-        # [activation index, fill the value until to a certain feature_size]
         dentrites = dentrites_initialization(network_features_size[feature_size_idx+1])
         layers_axons.append(axons)
         layers_dentrites.append(dentrites)
@@ -31,9 +27,7 @@ def backward_pass_architecture(network_features_size: list):
     layers_axons = []
     layers_dentrites = []
     for feature_size_idx in range(len(network_features_size)-1):
-        # [connection index, fill the value until to a certain feature_size, fill the value until to a certain feature_size]
         axons = axons_initialization(network_features_size[feature_size_idx], network_features_size[feature_size_idx+1])
-        # [activation index, fill the value until to a certain feature_size]
         dentrites = dentrites_initialization(network_features_size[feature_size_idx+1])
         layers_axons.append(axons)
         layers_dentrites.append(dentrites)
