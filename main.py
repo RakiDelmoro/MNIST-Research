@@ -1,9 +1,11 @@
 import torch
+from cupy_utils.utils import one_hot
+# from torch.nn.functional import one_hot
 from model_v2.model import neural_network
 from mlp_torch_model.model import MlpNetwork
 from torch.utils.data import DataLoader
 from utils import load_data_to_memory
-from torchvision import transforms, datasets
+from torchvision import transforms, datasets 
 from nn_utils.activation_functions import leaky_relu
 
 def main():
@@ -11,14 +13,16 @@ def main():
     BATCH_SIZE = 2098
     IMAGE_WIDTH = 28
     IMAGE_HEIGHT = 28
-    LEARNING_RATE = 0.001
+    LEARNING_RATE = 0.000001
+    NUMBER_OF_CLASSES = 10
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
-    NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 2000, 2000, 10]
+    NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 2000, 2000, NUMBER_OF_CLASSES]
     LOSS_FUNCTION = torch.nn.CrossEntropyLoss()
-    TRANSFORM = transforms.Compose([transforms.ToTensor()])
+    TRANSFORM = lambda x: torch.flatten(transforms.PILToTensor()(x))#transforms.Compose([transforms.ToTensor()], torch.flatten)
+    TARGET_TRANSFORM = lambda x: torch.tensor(one_hot(x, number_of_classes=NUMBER_OF_CLASSES), dtype=torch.float32)
 
-    training_dataset = datasets.MNIST('./training-data', download=True, train=True, transform=TRANSFORM)
-    validation_dataset = datasets.MNIST('./training-data', download=True, train=False, transform=TRANSFORM)
+    training_dataset = datasets.MNIST('./training-data', download=True, train=True, transform=TRANSFORM, target_transform=TARGET_TRANSFORM)
+    validation_dataset = datasets.MNIST('./training-data', download=True, train=False, transform=TRANSFORM, target_transform=TARGET_TRANSFORM)
     training_dataloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=True)
 
@@ -27,6 +31,6 @@ def main():
     #                   learning_rate=LEARNING_RATE)
 
     # CUPY Model
-    runner = neural_network(network_architecture=NETWORK_ARCHITECTURE)
-    runner(EPOCHS, training_dataloader, validation_dataloader, LOSS_FUNCTION, LEARNING_RATE)
+    neural_network(network_architecture=NETWORK_ARCHITECTURE, training_dataloader=training_dataloader, validation_dataloader=validation_dataloader, learning_rate=LEARNING_RATE, epochs=EPOCHS)
+    # runner(EPOCHS, training_dataloader, validation_dataloader, LOSS_FUNCTION, LEARNING_RATE)
 main()
