@@ -64,6 +64,7 @@ def nudge_axons_and_dentrites(layers_stress, neurons_activations, axons_and_dent
             # Problem shape mismatch:
             # layer_axons shape -> (input_feature, output_feature)
             # learning_rate * (cp.dot(layer_stress, layer_axons.transpose() / cp.sum(layer_axons))) -> (batch_size, input_feature)
+            #TODO: create a function so that this will work -> layer_axons -= learning_rate * (cp.dot(layer_stress, layer_axons.transpose() / cp.sum(layer_axons))) -> (batch_size, input_feature)
             # layer_axons -= learning_rate * (cp.dot(layer_stress, layer_axons.transpose() / cp.sum(layer_axons)))
             layer_axons -= learning_rate * (cp.dot(layer_neuron_activation.transpose(), layer_stress) / cp.sum(layer_neuron_activation))
             # dentrites[layer_connection] -= learning_rate * cp.sum(layer_stress, axis=0)
