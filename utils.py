@@ -18,7 +18,7 @@ def load_data_to_memory(file_name: str):
 
     return (torch.tensor(training_image_array, dtype=torch.float32), one_hot_encoded(cp.array(training_label_array))), (cp.array(validation_image_array, dtype=torch.float32), one_hot_encoded(torch.tensor(validation_label_array)))
 
-def dataloader(samples, batch_size, shuffle):
+def cupy_dataloader(samples, batch_size, shuffle):
     training_samples = samples[0]
     expected_samples = samples[1]
 
