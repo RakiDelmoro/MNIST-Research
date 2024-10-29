@@ -10,14 +10,14 @@ class MlpNetwork(torch.nn.Module):
         self.device = "cuda"
         self.network_layers = nn.ModuleList(
             nn.Sequential(
-                nn.Linear(network_architecture[idx], network_architecture[idx+1], bias=False, device='cuda'),
+                nn.Linear(network_architecture[idx], network_architecture[idx+1], device='cuda'),
                 # nn.LeakyReLU() if idx != len(network_architecture)-2 else nn.Softmax(dim=-1)
             )
             for idx in range(len(network_architecture)-1)
         )
 
     def forward(self, batch_data):
-        previous_neurons = batch_data.flatten(1, -1)
+        previous_neurons = batch_data
         for layer in self.network_layers:
             previous_neurons = layer(previous_neurons)
 
@@ -28,7 +28,7 @@ class MlpNetwork(torch.nn.Module):
         per_batch_loss = []
         for input_batch, expected_batch in training_loader:
             input_batch = input_batch.to(self.device)
-            expected_batch = functional.one_hot(expected_batch, num_classes=10).float().to(self.device)
+            expected_batch = expected_batch.to(self.device)
             model_prediction = self.forward(input_batch)
             loss = loss_function(model_prediction, expected_batch)
             per_batch_loss.append(loss.item())
@@ -47,7 +47,7 @@ class MlpNetwork(torch.nn.Module):
         expected_model_prediction = []
         for input_image_batch, expected_batch in dataloader:
             input_image_batch = input_image_batch.to(self.device)
-            expected_batch = functional.one_hot(expected_batch, num_classes=10).float().to(self.device)
+            expected_batch = expected_batch.to(self.device)
             model_output = self.forward(input_image_batch)
             batch_accuracy = (expected_batch.argmax(-1) == (model_output).argmax(-1)).float().mean()
             correct_indices_in_a_batch = torch.where(expected_batch.argmax(-1) == model_output.argmax(-1))[0]
