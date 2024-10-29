@@ -9,8 +9,8 @@ from model_v2.utils_py_list_format import initialize_network_parameters, trainin
 
 def neural_network(network_architecture: list, training_dataloader, validation_dataloader, learning_rate, epochs):
     # Return Tuple of axons and dentrites
-    forward_pass_axons_and_dentrites = initialize_network_parameters(network_features_size=network_architecture)
-    backward_pass_axons_and_dentrites = initialize_network_parameters(network_features_size=network_architecture[::-1])
+    forward_pass_axons_and_dentrites = initialize_network_parameters(network_features_sizes=network_architecture)
+    backward_pass_axons_and_dentrites = initialize_network_parameters(network_features_sizes=network_architecture[::-1])
 
     def test_run(forward_parameters, backward_paramters):
         accuracy, correct_samples, wrong_samples, model_prediction, model_expected_prediction = test_layers(dataloader=validation_dataloader, forward_pass_trained_parameters=forward_parameters, backward_pass_trained_parameters=backward_paramters)
