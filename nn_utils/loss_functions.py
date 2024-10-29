@@ -1,5 +1,5 @@
 import cupy as cp
-from activation_functions import softmax
+from nn_utils.activation_functions import softmax
 
 def cross_entropy_loss(model_prediction, expected):
     # Compute probability distribution of model output
