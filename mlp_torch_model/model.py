@@ -27,8 +27,6 @@ class MlpNetwork(torch.nn.Module):
         optimizer = torch.optim.SGD(self.parameters(), lr=learning_rate)
         per_batch_loss = []
         for input_batch, expected_batch in training_loader:
-            input_batch = input_batch.to(self.device)
-            expected_batch = expected_batch.to(self.device)
             model_prediction = self.forward(input_batch)
             loss = loss_function(model_prediction, expected_batch)
             per_batch_loss.append(loss.item())
