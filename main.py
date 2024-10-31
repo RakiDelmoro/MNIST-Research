@@ -9,7 +9,7 @@ def main():
     BATCH_SIZE = 2098
     IMAGE_WIDTH = 28
     IMAGE_HEIGHT = 28
-    LEARNING_RATE = 0.001
+    LEARNING_RATE = 0.000001
     NUMBER_OF_CLASSES = 10
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
     NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 100, 100, 100, 100, 100, 100, 100, 100, NUMBER_OF_CLASSES]
@@ -21,6 +21,6 @@ def main():
     training_dataloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=True)
     
-    neural_network(NETWORK_ARCHITECTURE, training_dataloader, validation_dataloader)
+    neural_network(NETWORK_ARCHITECTURE, training_dataloader, validation_dataloader, LEARNING_RATE)
 
 main()
