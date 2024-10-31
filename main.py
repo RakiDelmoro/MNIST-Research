@@ -23,6 +23,4 @@ def main():
     
     neural_network(NETWORK_ARCHITECTURE, training_dataloader, validation_dataloader)
 
-    # neural_network(network_architecture=NETWORK_ARCHITECTURE, training_dataloader=training_dataloader, validation_dataloader=validation_dataloader, learning_rate=LEARNING_RATE, epochs=EPOCHS)
-
 main()
