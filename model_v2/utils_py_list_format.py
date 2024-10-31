@@ -4,6 +4,7 @@ import torch
 import cupy as cp
 from functools import reduce
 from cupy_utils.utils import one_hot
+from features import GREEN, RED, RESET
 
 def axons_initialization(input_feature, output_feature):
     bound_w = cp.sqrt(3) * cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
@@ -33,7 +34,7 @@ def get_network_activations(input_neurons, total_connections, network_axons_and_
     for neurons_layer_idx in range(total_connections):
         axons = network_axons_and_dentrites[0][neurons_layer_idx]
         dentrites = network_axons_and_dentrites[-1][neurons_layer_idx]
-        neurons = cp.dot(neurons, axons) + dentrites
+        neurons = cp.dot(neurons, axons)
         neurons_activations.append(neurons)
     return neurons_activations
 
@@ -42,47 +43,62 @@ def layers_of_neurons_stress(total_activations, forward_pass_activations, backwa
     for activation_idx in range(total_activations):
         forward_activation = forward_pass_activations[activation_idx]
         backward_activation = backward_pass_activations[-(activation_idx+1)]
-        stress = (forward_activation - backward_activation) / 2098
+        stress = (forward_activation - backward_activation) / forward_activation.shape[0]
         neurons_stress.append(stress)
     return neurons_stress
+
+def nudge_forwad_pass_parameters(layer_index, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate):
+    previous_neurons_activation = neurons_activations[layer_index]
+    neurons_stress = layers_stress[layer_index+1]
+    axons = layers_axons[layer_index]
+    dentrites = layers_dentrites[layer_index]
+    axons -= learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress)
+    dentrites -= learning_rate * cp.sum(neurons_stress, axis=0)
+
+def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate):
+    previous_neurons_activation = neurons_activations[layer_index]
+    neurons_stress = layers_stress[-(layer_index+2)]
+    axons = layers_axons[layer_index]
+    dentrites = layers_dentrites[layer_index]
+    activations_positive_indices = previous_neurons_activation > 0
+    activations_negative_indices = previous_neurons_activation < 0
+    stress_positive_indices = neurons_stress > 0
+    stress_negative_indices = neurons_stress < 0
+    #TODO: need to figure out the boolean operation for wether should we nudge up/down axons value
+    axons_nudge_up = None # TODO: return an array of boolean if true we want that value to nudge up
+    axons_nudge_down = None # TODO: return an array of boolean if true we want that value to nudge down
+    #axons[nudge_up] +=
+    #axons[nudge_down] -= 
+    # Parameters update
+    axons += learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress)
+    dentrites += learning_rate * cp.sum(neurons_stress, axis=0)
 
 def nudge_axons_and_dentrites(layers_stress, neurons_activations, axons_and_dentrites, for_backward_pass, learning_rate):
     layers_axons = axons_and_dentrites[0]
     layers_dentrites = axons_and_dentrites[-1]
-    for layer_connection_idx in range(len(layers_axons)):
+    total_connections = len(layers_axons)
+    for connection_idx in range(total_connections):
         if not for_backward_pass:
-            layer_neuron_activation = neurons_activations[layer_connection_idx]
-            layer_stress = layers_stress[layer_connection_idx+1]
-            layer_axons = layers_axons[layer_connection_idx]
-            layer_dentrites = layers_dentrites[layer_connection_idx]
-            layer_axons -= learning_rate * cp.dot(layer_neuron_activation.transpose(), layer_stress)
-            layer_dentrites -= learning_rate * cp.sum(layer_stress, axis=0)
+            nudge_forwad_pass_parameters(connection_idx, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate)
         else:
-            layer_neuron_activation = neurons_activations[layer_connection_idx]
-            layer_stress = layers_stress[-(layer_connection_idx+2)]
-            layer_axons = layers_axons[layer_connection_idx]
-            layer_dentrites = layers_dentrites[layer_connection_idx]
-            layer_axons += learning_rate * cp.dot(layer_neuron_activation.transpose(), layer_stress)
-            layer_dentrites += learning_rate * cp.sum(layer_stress, axis=0)
+            nudge_backward_pass_parameters(connection_idx, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate)
 
 def visualize_neurons_activity(forward_activations, backward_activations, neurons_stress):
     for layer_idx in range(len(forward_activations)):
         print(f"({forward_activations[layer_idx][0][1].tolist():10.6e}, {backward_activations[-(layer_idx+1)][0][1].tolist():10.6e}, {neurons_stress[layer_idx][0][1].tolist():10.6e})", end=" ")
     print("")
-        # print(f"{layer_idx+1}:{forward_activation[layer_idx][0][:2]} Backward activation Layer {layer_idx+1}: {backward_activation[-(layer_idx+1)][0][:2]}")
-        # print(f'Layer {layer_idx+1} stress: {neurons_stress[layer_idx][0][:2]}')
 
 def training_layers(dataloader, forward_pass_parameters, backward_pass_parameters, learning_rate):
     each_batch_layers_stress = []
-    for i, (input_batch, expected_batch) in enumerate(dataloader):
+    for input_batch, expected_batch in dataloader:
         forward_pass_activations = get_network_activations(input_neurons=input_batch, total_connections=len(forward_pass_parameters[0]), network_axons_and_dentrites=forward_pass_parameters)
         backward_pass_activations = get_network_activations(input_neurons=expected_batch, total_connections=len(backward_pass_parameters[0]), network_axons_and_dentrites=backward_pass_parameters)
         neurons_activation_stress = layers_of_neurons_stress(total_activations=len(forward_pass_activations), forward_pass_activations=forward_pass_activations, backward_pass_activations=backward_pass_activations)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=forward_pass_activations, axons_and_dentrites=forward_pass_parameters, for_backward_pass=False, learning_rate=learning_rate)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=backward_pass_activations, axons_and_dentrites=backward_pass_parameters, for_backward_pass=True, learning_rate=learning_rate)
-        visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
+        # visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
         each_batch_layers_stress.append(neurons_activation_stress)
-    network_loss_avg = cp.mean(cp.array([cp.mean(layer_stress) for layers_stress in each_batch_layers_stress for layer_stress in layers_stress]))
+    network_loss_avg = cp.mean(cp.array([cp.sum(layer_stress) for layers_stress in each_batch_layers_stress for layer_stress in layers_stress]))
     return network_loss_avg
 
 def test_layers(dataloader, forward_pass_trained_parameters, backward_pass_trained_parameters):
@@ -93,13 +109,6 @@ def test_layers(dataloader, forward_pass_trained_parameters, backward_pass_train
             axons = forward_pass_trained_parameters[0][connection_idx]
             dentrites = forward_pass_trained_parameters[-1][connection_idx]
             neurons = cp.dot(neurons, axons) + dentrites
-        return neurons
-    
-    def backward_pass_inference_run(input_batch):
-        neurons = input_batch
-        total_connections = len(forward_pass_trained_parameters)
-        for connection_idx in range(total_connections):
-            neurons = cp.dot(neurons, forward_pass_trained_parameters[connection_idx][0]) + forward_pass_trained_parameters[connection_idx][0]
         return neurons
 
     per_batch_accuracy = []
@@ -126,4 +135,9 @@ def test_layers(dataloader, forward_pass_trained_parameters, backward_pass_train
     model_prediction = cp.concatenate(model_predictions)
     model_expected_prediction = cp.concatenate(expected_model_prediction)
 
-    return model_accuracy, correct_samples, wrong_samples, model_prediction, model_expected_prediction
+    print(f"{GREEN}Model Correct Predictions{RESET}")
+    for indices in correct_samples: print(f"Digit Image is: {GREEN}{model_expected_prediction[indices]}{RESET} Model Prediction: {GREEN}{model_prediction[indices]}{RESET}")
+    print(f"{RED}Model Wrong Predictions{RESET}")
+    for indices in wrong_samples: print(f"Digit Image is: {RED}{model_expected_prediction[indices]}{RESET} Model Predictions: {RED}{model_prediction[indices]}{RESET}")
+
+    return model_accuracy
