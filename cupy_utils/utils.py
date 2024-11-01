@@ -6,11 +6,10 @@ def one_hot(cupy_array, number_of_classes):
 #     one_hot[cp.arange(class_indices.size), class_indices] = 1
 #     return one_hot
 
-
 def axons_initialization(input_feature, output_feature):
     bound_w = cp.sqrt(3) * cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
     weights = cp.random.uniform(-bound_w, bound_w, size=(input_feature, output_feature), dtype=cp.float32)
-    # weights = cp.random.randn(input_feature, output_feature)
+    # weights = cp.random.randn(input_feature, output_feature) * 0.01
     return weights
 
 def dentrites_initialization(output_feature):

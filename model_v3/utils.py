@@ -5,15 +5,6 @@ from nn_utils.activation_functions import leaky_relu, softmax
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import axons_initialization, dentrites_initialization
 
-def axon_and_dentrites_initialization(input_feature, output_feature):
-    bound_w = cp.sqrt(3) * cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
-    axons = cp.random.uniform(-bound_w, bound_w, size=(input_feature, output_feature), dtype=cp.float32)
-    bound_b = 1 / cp.sqrt(output_feature) if output_feature > 0 else 0
-    dentrites = cp.random.uniform(-bound_b, bound_b, size=(output_feature,), dtype=cp.float32)
-    # axons = cp.random.randn(input_feature, output_feature, dtype=cp.float32)
-    # dentrites = cp.zeros(output_feature, dtype=cp.float32)
-    return axons, dentrites
-
 def network_axons_and_dentrites(model_feature_sizes):
     layers_axons_and_dentrites = []
     for connection_idx in range(len(model_feature_sizes)-1):

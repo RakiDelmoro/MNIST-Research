@@ -57,12 +57,12 @@ def nudge_forwad_pass_parameters(layer_index, neurons_activations, layers_stress
     activation_positive_values = previous_neurons_activation > 0
     # Multiply both boolean array to wether should we nudge up/down axons values
     # (Boolean array where should we nudge up axons values) Shape -> (input_feature, output_feature)
-    nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
+    indices_to_be_nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
     # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
-    nudge_down = ~nudge_up
+    indices_to_be_nudge_down = ~indices_to_be_nudge_up
 
-    axons -= cp.where(nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
-    axons += cp.where(nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    axons -= cp.where(indices_to_be_nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    axons += cp.where(indices_to_be_nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
 
 def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate):
     previous_neurons_activation = neurons_activations[layer_index]
@@ -76,12 +76,12 @@ def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stre
     activation_positive_values = previous_neurons_activation > 0
     # Multiply both boolean array to wether should we nudge up/down axons values
     # (Boolean array where should we nudge up axons values) Shape -> (input_feature, output_feature)
-    nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
+    indices_to_be_nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
     # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
-    nudge_down = ~nudge_up
+    indices_to_be_nudge_down = ~indices_to_be_nudge_up
     
-    axons += cp.where(nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
-    axons -= cp.where(nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    axons += cp.where(indices_to_be_nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    axons -= cp.where(indices_to_be_nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
 
 def nudge_axons_and_dentrites(layers_stress, neurons_activations, axons_and_dentrites, for_backward_pass, learning_rate):
     layers_axons = axons_and_dentrites[0]
@@ -104,9 +104,9 @@ def training_layers(dataloader, forward_pass_parameters, backward_pass_parameter
         forward_pass_activations = get_network_activations(input_neurons=input_batch, total_connections=len(forward_pass_parameters[0]), network_axons_and_dentrites=forward_pass_parameters)
         backward_pass_activations = get_network_activations(input_neurons=expected_batch, total_connections=len(backward_pass_parameters[0]), network_axons_and_dentrites=backward_pass_parameters)
         neurons_activation_stress = layers_of_neurons_stress(total_activations=len(forward_pass_activations), forward_pass_activations=forward_pass_activations, backward_pass_activations=backward_pass_activations)
+        visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=forward_pass_activations, axons_and_dentrites=forward_pass_parameters, for_backward_pass=False, learning_rate=learning_rate)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=backward_pass_activations, axons_and_dentrites=backward_pass_parameters, for_backward_pass=True, learning_rate=learning_rate)
-        visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
         each_batch_layers_stress.append(neurons_activation_stress)
     network_loss_avg = cp.mean(cp.array([cp.sum(layer_stress) for layers_stress in each_batch_layers_stress for layer_stress in layers_stress]))
     return network_loss_avg
