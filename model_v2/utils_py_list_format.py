@@ -52,26 +52,36 @@ def nudge_forwad_pass_parameters(layer_index, neurons_activations, layers_stress
     neurons_stress = layers_stress[layer_index+1]
     axons = layers_axons[layer_index]
     dentrites = layers_dentrites[layer_index]
-    axons -= learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress)
-    dentrites -= learning_rate * cp.sum(neurons_stress, axis=0)
+    pre_synaptic_positive_values = (cp.dot(previous_neurons_activation, axons)) > 0
+    # Boolean array (return TRUE to the index if not less than zero) Shape -> (Batch size, input_neuron_feature)
+    activation_positive_values = previous_neurons_activation > 0
+    # Multiply both boolean array to wether should we nudge up/down axons values
+    # (Boolean array where should we nudge up axons values) Shape -> (input_feature, output_feature)
+    nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
+    # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
+    nudge_down = ~nudge_up
+
+    axons -= cp.where(nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    axons += cp.where(nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
 
 def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate):
     previous_neurons_activation = neurons_activations[layer_index]
     neurons_stress = layers_stress[-(layer_index+2)]
     axons = layers_axons[layer_index]
     dentrites = layers_dentrites[layer_index]
-    activations_positive_indices = previous_neurons_activation > 0
-    activations_negative_indices = previous_neurons_activation < 0
-    stress_positive_indices = neurons_stress > 0
-    stress_negative_indices = neurons_stress < 0
-    #TODO: need to figure out the boolean operation for wether should we nudge up/down axons value
-    axons_nudge_up = None # TODO: return an array of boolean if true we want that value to nudge up
-    axons_nudge_down = None # TODO: return an array of boolean if true we want that value to nudge down
-    #axons[nudge_up] +=
-    #axons[nudge_down] -= 
-    # Parameters update
-    axons += learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress)
-    dentrites += learning_rate * cp.sum(neurons_stress, axis=0)
+    # Multiply previous neurons activation and axons
+    # Boolean array (return TRUE to the index if not less than zero) Shape -> (Batch size, neurons_activation)
+    pre_synaptic_positive_values = (cp.dot(previous_neurons_activation, axons)) > 0
+    # Boolean array (return TRUE to the index if not less than zero) Shape -> (Batch size, input_neuron_feature)
+    activation_positive_values = previous_neurons_activation > 0
+    # Multiply both boolean array to wether should we nudge up/down axons values
+    # (Boolean array where should we nudge up axons values) Shape -> (input_feature, output_feature)
+    nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
+    # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
+    nudge_down = ~nudge_up
+    
+    axons += cp.where(nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    axons -= cp.where(nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
 
 def nudge_axons_and_dentrites(layers_stress, neurons_activations, axons_and_dentrites, for_backward_pass, learning_rate):
     layers_axons = axons_and_dentrites[0]
@@ -85,7 +95,7 @@ def nudge_axons_and_dentrites(layers_stress, neurons_activations, axons_and_dent
 
 def visualize_neurons_activity(forward_activations, backward_activations, neurons_stress):
     for layer_idx in range(len(forward_activations)):
-        print(f"({forward_activations[layer_idx][0][1].tolist():10.6e}, {backward_activations[-(layer_idx+1)][0][1].tolist():10.6e}, {neurons_stress[layer_idx][0][1].tolist():10.6e})", end=" ")
+        print(f"({forward_activations[layer_idx][0][1].tolist():10.6e} {backward_activations[-(layer_idx+1)][0][1].tolist():10.6e} {neurons_stress[layer_idx][0][1].tolist():10.6e})", end=" ")
     print("")
 
 def training_layers(dataloader, forward_pass_parameters, backward_pass_parameters, learning_rate):
@@ -96,7 +106,7 @@ def training_layers(dataloader, forward_pass_parameters, backward_pass_parameter
         neurons_activation_stress = layers_of_neurons_stress(total_activations=len(forward_pass_activations), forward_pass_activations=forward_pass_activations, backward_pass_activations=backward_pass_activations)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=forward_pass_activations, axons_and_dentrites=forward_pass_parameters, for_backward_pass=False, learning_rate=learning_rate)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=backward_pass_activations, axons_and_dentrites=backward_pass_parameters, for_backward_pass=True, learning_rate=learning_rate)
-        # visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
+        visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
         each_batch_layers_stress.append(neurons_activation_stress)
     network_loss_avg = cp.mean(cp.array([cp.sum(layer_stress) for layers_stress in each_batch_layers_stress for layer_stress in layers_stress]))
     return network_loss_avg
