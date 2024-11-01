@@ -4,7 +4,7 @@ from cupy_utils.utils import one_hot
 from nn_utils.activation_functions import leaky_relu, softmax
 from model_v3.utils import network_axons_and_dentrites, get_forward_activations, get_backward_activations, calculate_network_stress, update_parameters, test_layers, training_layers
 
-def neural_network(network_architecture, training_loader, validation_loader, learning_rate):
+def neural_network_v3(network_architecture, training_loader, validation_loader, learning_rate):
     parameters = network_axons_and_dentrites(network_architecture)
 
     def training_run():
