@@ -43,7 +43,7 @@ def layers_of_neurons_stress(total_activations, forward_pass_activations, backwa
     for activation_idx in range(total_activations):
         forward_activation = forward_pass_activations[activation_idx]
         backward_activation = backward_pass_activations[-(activation_idx+1)]
-        stress = (forward_activation - backward_activation) / forward_activation.shape[0]
+        stress = (forward_activation - backward_activation)
         neurons_stress.append(stress)
     return neurons_stress
 
@@ -61,8 +61,10 @@ def nudge_forwad_pass_parameters(layer_index, neurons_activations, layers_stress
     # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
     indices_to_be_nudge_down = ~indices_to_be_nudge_up
 
-    axons -= cp.where(indices_to_be_nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
-    axons += cp.where(indices_to_be_nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    batch_size = previous_neurons_activation.shape[0]
+    update_amount = (learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress) / batch_size)
+    axons += cp.where(indices_to_be_nudge_down, update_amount,0)
+    axons -= cp.where(indices_to_be_nudge_up, update_amount,0)
 
 def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate):
     previous_neurons_activation = neurons_activations[layer_index]
@@ -80,8 +82,10 @@ def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stre
     # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
     indices_to_be_nudge_down = ~indices_to_be_nudge_up
     
-    axons += cp.where(indices_to_be_nudge_up, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
-    axons -= cp.where(indices_to_be_nudge_down, learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress),0)
+    batch_size = previous_neurons_activation.shape[0]
+    update_amount = (learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress) / batch_size)
+    axons += cp.where(indices_to_be_nudge_up, update_amount,0)
+    axons -= cp.where(indices_to_be_nudge_down, update_amount,0)
 
 def nudge_axons_and_dentrites(layers_stress, neurons_activations, axons_and_dentrites, for_backward_pass, learning_rate):
     layers_axons = axons_and_dentrites[0]
