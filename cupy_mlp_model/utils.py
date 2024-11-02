@@ -1,3 +1,4 @@
+import torch
 import cupy as cp
 from features import GREEN, RED, RESET
 from nn_utils.loss_functions import cross_entropy_loss
@@ -8,7 +9,7 @@ def forward_pass_activations(input_feature, layers_parameters):
     neurons_activations = [neurons]
     for each in range(total_activations):
         axons = layers_parameters[each][0]
-        dentrites = layers_parameters[each][1]
+        dentrites = layers_parameters[each][1] 
         neurons = cp.dot(neurons, axons) + dentrites
         neurons_activations.append(neurons)
     return neurons_activations
@@ -27,11 +28,16 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
     for layer_idx in range(total_parameters):
         axons = layers_parameters[-(layer_idx+1)][0]
         dentrites = layers_parameters[-(layer_idx+1)][1]
-        activation = neurons_activations[-(layer_idx+2)]
-        loss = layers_losses[layer_idx] / activation.shape[0]
+        current_activation = neurons_activations[-(layer_idx+1)]
+        previous_activation = neurons_activations[-(layer_idx+2)]
+        loss = layers_losses[layer_idx]
 
-        axons -= learning_rate * cp.dot(activation.transpose(), loss)
-        dentrites -= learning_rate * cp.sum(loss, axis=0)
+        backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
+        oja_parameters_nudge = learning_rate * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())        
+
+        # axons += oja_parameters_nudge / current_activation.shape[0]
+        axons -= (backprop_parameters_nudge / current_activation.shape[0])
+        # dentrites -= learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0]
 
 def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
