@@ -12,17 +12,17 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python Debugger: Main File",
+            "name": "Python Debugger: Custom Model 🏃‍♂️",
             "type": "debugpy",
             "request": "launch",
             "program": "./main.py",
             "console": "integratedTerminal"
         },
         {
-            "name": "Python Debugger: Runner File",
+            "name": "Python Debugger: Torch Model 🏃‍♂️",
             "type": "debugpy",
             "request": "launch",
-            "program": "./runner_test.py",
+            "program": "./torch_model_runner.py",
             "console": "integratedTerminal"
         }
     ]
