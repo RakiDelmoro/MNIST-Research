@@ -11,15 +11,15 @@ def neural_network_v2(network_architecture: list, training_dataloader, validatio
     forward_pass_axons_and_dentrites = initialize_network_parameters(network_features_sizes=network_architecture)
     backward_pass_axons_and_dentrites = initialize_network_parameters(network_features_sizes=network_architecture[::-1])
 
-    def training_run(dataloader):
-        training_loss = training_layers(dataloader, forward_pass_axons_and_dentrites, backward_pass_axons_and_dentrites, learning_rate)
+    def training_run():
+        training_loss = training_layers(training_dataloader, forward_pass_axons_and_dentrites, backward_pass_axons_and_dentrites, learning_rate)
         return training_loss
-    
-    def test_run(dataloader):
-        accuracy = test_layers(dataloader, forward_pass_axons_and_dentrites, backward_pass_axons_and_dentrites)
+
+    def test_run():
+        accuracy = test_layers(validation_dataloader, forward_pass_axons_and_dentrites, backward_pass_axons_and_dentrites)
         return accuracy
 
     for epoch in range(epochs):
-        training_loss = training_run(training_dataloader)
-        accuracy = test_run(validation_dataloader)
+        training_loss = training_run()
+        accuracy = test_run()
         print(f"EPOCH: {epoch+1} Training Loss: {training_loss} Model Accuracy: {accuracy}")
