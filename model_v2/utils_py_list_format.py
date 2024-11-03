@@ -7,7 +7,7 @@ from cupy_utils.utils import one_hot
 from features import GREEN, RED, RESET
 
 def axons_initialization(input_feature, output_feature):
-    bound_w = cp.sqrt(3) * cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
+    bound_w = cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
     weights = cp.random.uniform(-bound_w, bound_w, size=(input_feature, output_feature))
     return weights
 
@@ -52,19 +52,19 @@ def nudge_forwad_pass_parameters(layer_index, neurons_activations, layers_stress
     neurons_stress = layers_stress[layer_index+1]
     axons = layers_axons[layer_index]
     dentrites = layers_dentrites[layer_index]
-    pre_synaptic_positive_values = (cp.dot(previous_neurons_activation, axons)) > 0
+    pre_synaptic_negative_values = (cp.dot(previous_neurons_activation, axons)) < 0
     # Boolean array (return TRUE to the index if not less than zero) Shape -> (Batch size, input_neuron_feature)
-    activation_positive_values = previous_neurons_activation > 0
+    activation_positive_values = previous_neurons_activation < 0
     # Multiply both boolean array to wether should we nudge up/down axons values
     # (Boolean array where should we nudge up axons values) Shape -> (input_feature, output_feature)
-    indices_to_be_nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_positive_values)
+    indices_to_be_nudge_up = cp.dot(activation_positive_values.transpose(), pre_synaptic_negative_values)
     # Boolean array opposite of nudge up (TRUE in nudge up array will convert into FALSE and vice versa.)
     indices_to_be_nudge_down = ~indices_to_be_nudge_up
 
     batch_size = previous_neurons_activation.shape[0]
     update_amount = (learning_rate * cp.dot(previous_neurons_activation.transpose(), neurons_stress) / batch_size)
-    axons += cp.where(indices_to_be_nudge_down, update_amount,0)
-    axons -= cp.where(indices_to_be_nudge_up, update_amount,0)
+    axons += cp.where(indices_to_be_nudge_up, update_amount,0)
+    axons -= cp.where(indices_to_be_nudge_down, update_amount,0)
 
 def nudge_backward_pass_parameters(layer_index, neurons_activations, layers_stress, layers_axons, layers_dentrites, learning_rate):
     previous_neurons_activation = neurons_activations[layer_index]
