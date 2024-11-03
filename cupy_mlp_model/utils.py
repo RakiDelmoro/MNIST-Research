@@ -15,26 +15,38 @@ def forward_pass_activations(input_feature, layers_parameters):
         neurons_activations.append(neurons)
     return neurons_activations
 
-def backward_pass_network_stress(layer_stress, layers_parameters):
+def backward_pass_network_stress(backprop_stress, expected_activation, layers_activations, layers_parameters):
     total_layers_stress = len(layers_parameters)-1
-    layers_stress = [layer_stress]
+    layers_stress = [backprop_stress]
+    batch_size = layers_activations[0].shape[0]
+    reconstruction = expected_activation
+    reconstruction_layers = [reconstruction]
     for each in range(total_layers_stress):
         axons = layers_parameters[-(each+1)][0]
-        layer_stress = cp.dot(layer_stress, axons.transpose())
-        layers_stress.append(layer_stress)
-    return layers_stress
+        backprop_stress = (cp.dot(backprop_stress, axons.transpose())) / batch_size
 
-def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
+        previous_activation = layers_activations[-(each+2)]
+        # Calculate ‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
+        reconstruction = cp.dot(reconstruction, axons.transpose())
+        oja_stress = previous_activation - reconstruction
+        loss = cp.sum(cp.linalg.norm(oja_stress, axis=1)**2) / batch_size
+
+        layer_loss = backprop_stress + oja_stress
+        layers_stress.append(layer_loss)
+        reconstruction_layers.append(reconstruction)
+    return layers_stress, reconstruction_layers
+
+def update_layers_parameters(neurons_activations, reconstruct_layers, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_parameters)
     for layer_idx in range(total_parameters):
         axons = layers_parameters[-(layer_idx+1)][0]
         # dentrites = layers_parameters[-(layer_idx+1)][1]
-        current_activation = neurons_activations[-(layer_idx+1)]
+        current_activation = reconstruct_layers[layer_idx]
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
 
         backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
-        oja_parameters_nudge = 0.001 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())        
+        oja_parameters_nudge = learning_rate * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())        
 
         axons -= (backprop_parameters_nudge / current_activation.shape[0])
         axons += (oja_parameters_nudge / current_activation.shape[0])
@@ -42,20 +54,13 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
 
 def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
-    while True:
-        i = 0
-        for i, (input_batch, expected_batch) in enumerate(dataloader):
-            neurons_activations = forward_pass_activations(input_batch, layers_parameters)
-            stress, stress_to_propagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
-            network_layers_stress = backward_pass_network_stress(cp.array(stress_to_propagate), layers_parameters)
-            update_layers_parameters(neurons_activations, network_layers_stress, layers_parameters, learning_rate)
-            print(f"Loss each batch {i+1}: {stress}\r", end="", flush=True)
-            per_batch_stress.append(stress)
-            i += i
-            if i == 10000:
-                break
-        if i == 10000:
-            break
+    for i, (input_batch, expected_batch) in enumerate(dataloader):
+        neurons_activations = forward_pass_activations(input_batch, layers_parameters)
+        stress, stress_to_propagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
+        network_layers_stress, reconstruct_layers = backward_pass_network_stress(cp.array(stress_to_propagate), cp.array(expected_batch), neurons_activations, layers_parameters)
+        update_layers_parameters(neurons_activations, reconstruct_layers, network_layers_stress, layers_parameters, learning_rate)
+        print(f"Loss each batch {i+1}: {stress}\r", end="", flush=True)
+        per_batch_stress.append(stress)
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters):
