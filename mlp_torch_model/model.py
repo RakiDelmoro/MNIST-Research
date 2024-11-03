@@ -11,17 +11,18 @@ class MlpNetwork(torch.nn.Module):
         self.network_layers = nn.ModuleList(
             nn.Sequential(
                 nn.Linear(network_architecture[idx], network_architecture[idx+1], device='cuda'),
-                # nn.LeakyReLU() if idx != len(network_architecture)-2 else nn.Softmax(dim=-1)
+                nn.ReLU() if idx != len(network_architecture)-2 else nn.Softmax(dim=-1)
             )
             for idx in range(len(network_architecture)-1)
         )
 
     def forward(self, batch_data):
         previous_neurons = batch_data
+        neurons_activations = [previous_neurons]
         for layer in self.network_layers:
             previous_neurons = layer(previous_neurons)
-
-        return previous_neurons
+            neurons_activations.append(previous_neurons)
+        return neurons_activations
 
     def training_run(self, training_loader, loss_function, learning_rate):
         optimizer = torch.optim.SGD(self.parameters(), lr=learning_rate)
@@ -30,7 +31,7 @@ class MlpNetwork(torch.nn.Module):
             input_batch = input_batch.to(self.device)
             expected_batch = expected_batch.to(self.device)
             model_prediction = self.forward(input_batch)
-            loss = loss_function(model_prediction, expected_batch)
+            loss = loss_function(model_prediction[-1], expected_batch)
             per_batch_loss.append(loss.item())
             # Update Parameters
             optimizer.zero_grad()
@@ -48,8 +49,8 @@ class MlpNetwork(torch.nn.Module):
         for input_image_batch, expected_batch in dataloader:
             input_image_batch = input_image_batch.to(self.device)
             expected_batch = expected_batch.to(self.device)
-            model_output = self.forward(input_image_batch)
-            batch_accuracy = (expected_batch.argmax(-1) == (model_output).argmax(-1)).float().mean()
+            model_output = self.forward(input_image_batch)[-1]
+            batch_accuracy = (expected_batch.argmax(-1) == model_output.argmax(-1)).float().mean()
             correct_indices_in_a_batch = torch.where(expected_batch.argmax(-1) == model_output.argmax(-1))[0]
             wrong_indices_in_a_batch = torch.where(~(expected_batch.argmax(-1) == model_output.argmax(-1)))[0]
 
