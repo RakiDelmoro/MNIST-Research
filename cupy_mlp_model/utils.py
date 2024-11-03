@@ -1,6 +1,7 @@
 import torch
 import cupy as cp
 from features import GREEN, RED, RESET
+from cupy_utils.utils import cupy_array
 from nn_utils.loss_functions import cross_entropy_loss
 
 def forward_pass_activations(input_feature, layers_parameters):
@@ -10,7 +11,7 @@ def forward_pass_activations(input_feature, layers_parameters):
     for each in range(total_activations):
         axons = layers_parameters[each][0]
         dentrites = layers_parameters[each][1] 
-        neurons = cp.dot(neurons, axons) + dentrites
+        neurons = cp.dot(neurons, axons)
         neurons_activations.append(neurons)
     return neurons_activations
 
@@ -27,26 +28,34 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
     total_parameters = len(layers_parameters)
     for layer_idx in range(total_parameters):
         axons = layers_parameters[-(layer_idx+1)][0]
-        dentrites = layers_parameters[-(layer_idx+1)][1]
+        # dentrites = layers_parameters[-(layer_idx+1)][1]
         current_activation = neurons_activations[-(layer_idx+1)]
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
 
         backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
-        oja_parameters_nudge = learning_rate * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())        
+        oja_parameters_nudge = 0.001 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())        
 
-        # axons += oja_parameters_nudge / current_activation.shape[0]
         axons -= (backprop_parameters_nudge / current_activation.shape[0])
+        axons += (oja_parameters_nudge / current_activation.shape[0])
         # dentrites -= learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0]
 
 def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
-    for input_batch, expected_batch in dataloader:
-        neurons_activations = forward_pass_activations(input_batch, layers_parameters)
-        stress, stress_to_propagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
-        network_layers_stress = backward_pass_network_stress(stress_to_propagate, layers_parameters)
-        update_layers_parameters(neurons_activations, network_layers_stress, layers_parameters, learning_rate)
-        per_batch_stress.append(stress)
+    while True:
+        i = 0
+        for i, (input_batch, expected_batch) in enumerate(dataloader):
+            neurons_activations = forward_pass_activations(input_batch, layers_parameters)
+            stress, stress_to_propagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
+            network_layers_stress = backward_pass_network_stress(cp.array(stress_to_propagate), layers_parameters)
+            update_layers_parameters(neurons_activations, network_layers_stress, layers_parameters, learning_rate)
+            print(f"Loss each batch {i+1}: {stress}\r", end="", flush=True)
+            per_batch_stress.append(stress)
+            i += i
+            if i == 10000:
+                break
+        if i == 10000:
+            break
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters):
@@ -57,7 +66,7 @@ def test_layers(dataloader, layers_parameters):
     expected_model_prediction = []
     for input_image_batch, expected_batch in dataloader:
         # expected_batch = cp.array(one_hot(expected_batch, num_classes=10))
-        expected_batch = cp.array(expected_batch)
+        expected_batch = cupy_array(expected_batch)
         model_output = forward_pass_activations(input_image_batch, layers_parameters)[-1]
         batch_accuracy = cp.array(expected_batch.argmax(-1) == (model_output).argmax(-1)).mean()
         correct_indices_in_a_batch = cp.where(expected_batch.argmax(-1) == model_output.argmax(-1))[0]
