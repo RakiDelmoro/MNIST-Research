@@ -1,13 +1,28 @@
+import math
+import torch
 import cupy as cp
 import numpy as np
-def one_hot(cupy_array, number_of_classes):
-    return cp.array(cp.eye(number_of_classes)[cupy_array], dtype=cp.float32)
-#     one_hot = cp.zeros((class_indices.size, num_classes), dtype=cp.float32)
-#     one_hot[cp.arange(class_indices.size), class_indices] = 1
-#     return one_hot
+
+def cupy_array(x):
+    return cp.round(cp.array(x, dtype=cp.float32), 4)
+
+def one_hot(x, number_of_classes):
+    return cupy_array(cp.eye(number_of_classes)[x])
+
+def axons_and_dentrites_initialization(input_feature, output_feature):
+    weights = torch.empty((input_feature, output_feature))
+    bias = torch.empty(output_feature)
+    torch.nn.init.kaiming_normal_(weights, a=math.sqrt(5))
+    fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(weights)
+    bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+    torch.nn.init.uniform_(bias, -bound, bound)
+
+    # weights = cp.random.randn(input_feature, output_feature) * 0.01
+
+    return cupy_array(weights), cupy_array(bias)
 
 def axons_initialization(input_feature, output_feature):
-    bound_w = cp.sqrt(3) * cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
+    bound_w = cp.sqrt(5) / cp.sqrt(input_feature) if input_feature > 0 else 0
     weights = cp.random.uniform(-bound_w, bound_w, size=(input_feature, output_feature), dtype=cp.float32)
     # weights = cp.random.randn(input_feature, output_feature) * 0.01
     return weights
