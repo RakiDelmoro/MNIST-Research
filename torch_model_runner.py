@@ -13,7 +13,7 @@ def main():
     NUMBER_OF_CLASSES = 10
     LOSS_FUNCTION = torch.nn.CrossEntropyLoss()
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
-    NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100, NUMBER_OF_CLASSES]
+    NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE,2000, 2000, NUMBER_OF_CLASSES]
     TRANSFORM = lambda x: torch.flatten(transforms.ToTensor()(x)).type(dtype=torch.float32)
     TARGET_TRANSFORM = lambda x: torch.tensor(one_hot(x, number_of_classes=NUMBER_OF_CLASSES), dtype=torch.float32)
 
