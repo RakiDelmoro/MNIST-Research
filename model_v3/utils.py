@@ -5,6 +5,10 @@ from nn_utils.activation_functions import leaky_relu, softmax
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import axons_initialization, dentrites_initialization
 
+
+    # oja_term = theta2 * (cp.dot(current_output.transpose(), neurons_activation) - cp.dot(cp.dot(current_output.transpose(), current_output), layer_axons)
+        
+
 def network_axons_and_dentrites(model_feature_sizes):
     layers_axons_and_dentrites = []
     for connection_idx in range(len(model_feature_sizes)-1):
