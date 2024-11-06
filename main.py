@@ -7,16 +7,16 @@ from model_v3.model import neural_network_v3
 from cupy_mlp_model.model import cupy_mlp_neural_network
 
 def main():
-    EPOCHS = 10
+    EPOCHS = 100
     BATCH_SIZE = 2098
     IMAGE_WIDTH = 28
     IMAGE_HEIGHT = 28
-    LEARNING_RATE = 0.01
+    LEARNING_RATE = 0.001
     NUMBER_OF_CLASSES = 10
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
-    NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 2000, 2000, NUMBER_OF_CLASSES]
-    # NETWORK_ARCHITECTURE = [INPUT_DATA_FEATURE_SIZE, 100, 100, 100, 100, 100, 100,
-    #                         100, 100, 100, 100, 100, 100, 100, 100, 100, NUMBER_OF_CLASSES]
+    INPUT_AND_OUTPUT_LAYERS = [INPUT_DATA_FEATURE_SIZE, NUMBER_OF_CLASSES]
+    MIDDLE_LAYERS = [500] * 5
+    NETWORK_ARCHITECTURE = INPUT_AND_OUTPUT_LAYERS[:1] + MIDDLE_LAYERS + INPUT_AND_OUTPUT_LAYERS[1:]
     TRANSFORM = lambda x: torch.flatten(transforms.ToTensor()(x)).type(dtype=torch.float32)
     TARGET_TRANSFORM = lambda x: torch.tensor(one_hot(x, number_of_classes=NUMBER_OF_CLASSES), dtype=torch.float32)
     
