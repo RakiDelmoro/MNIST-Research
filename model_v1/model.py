@@ -51,7 +51,7 @@ def neural_network(network_size: list):
         batched_network_stress = []
         for input_batch, expected_batch in training_loader:
             input_batch = cp.array(input_batch).reshape(input_batch.shape[0], -1)
-            expected_batch = one_hot(cupy_array=expected_batch, number_of_classes=10)
+            expected_batch = one_hot(x=expected_batch, number_of_classes=10)
             forward_neurons_activations = forward_in_neurons(input_batch)
             backward_neurons_activations = backward_in_neurons(expected_batch)
 
@@ -67,7 +67,7 @@ def neural_network(network_size: list):
         correct = 0
         for input_batch, expected_batch in validation_dataloader:
             input_batch = cp.array(input_batch).reshape(input_batch.shape[0], -1)
-            expected_batch = one_hot(cupy_array=expected_batch, number_of_classes=10)
+            expected_batch = one_hot(x=expected_batch, number_of_classes=10)
             model_output = forward_in_neurons(input_batch)[-1]
             test_loss += (model_output - expected_batch).item()
             model_prediction = model_output.argmax(dim=1, keepdim=True)
