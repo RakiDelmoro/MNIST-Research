@@ -96,7 +96,7 @@ def training_layers(dataloader, forward_pass_parameters, backward_pass_parameter
         forward_pass_activations = get_network_activations(input_neurons=input_batch, total_connections=len(forward_pass_parameters[0]), network_axons_and_dentrites=forward_pass_parameters)
         backward_pass_activations = get_network_activations(input_neurons=expected_batch, total_connections=len(backward_pass_parameters[0]), network_axons_and_dentrites=backward_pass_parameters)
         neurons_activation_stress = layers_of_neurons_stress(total_activations=len(forward_pass_activations), forward_pass_activations=forward_pass_activations, backward_pass_activations=backward_pass_activations)
-        visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
+        # visualize_neurons_activity(forward_pass_activations, backward_pass_activations, neurons_activation_stress)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=forward_pass_activations, axons_and_dentrites=forward_pass_parameters, for_backward_pass=False, learning_rate=learning_rate)
         nudge_axons_and_dentrites(layers_stress=neurons_activation_stress, neurons_activations=backward_pass_activations, axons_and_dentrites=backward_pass_parameters, for_backward_pass=True, learning_rate=learning_rate)
         each_batch_layers_stress.append(neurons_activation_stress)
