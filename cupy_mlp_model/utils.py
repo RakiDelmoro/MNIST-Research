@@ -29,7 +29,7 @@ def calculate_layers_stress(neurons_stress, layers_activations, layers_parameter
         axons = layers_parameters[-(each_layer+1)][0]
         current_activation = layers_activations[-(each_layer+1)]
         avg_error, neurons_reconstructed_error = reconstructed_activation_error(current_activation, axons)
-        layer_gradient = neurons_stress + neurons_reconstructed_error
+        layer_gradient = neurons_stress - neurons_reconstructed_error
         neurons_stress = cp.dot(neurons_stress, axons.transpose())
         backprop_and_oja_layers_gradient.append(layer_gradient)
     return backprop_and_oja_layers_gradient
@@ -42,16 +42,14 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
         current_activation = neurons_activations[-(layer_idx+1)]
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
-
         backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
         oja_parameters_nudge = 0.01 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
-        # oja_parameters_nudge = 0.00 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())       
 
         axons -= (backprop_parameters_nudge / current_activation.shape[0])
         axons += (oja_parameters_nudge / current_activation.shape[0])
         # dentrites -= learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0]
 
-def training_layers(dataloader, layers_parameters, learning_rate):
+def training_layers(dataloader, layers_parameters, learning_rate, training_data_length=1000):
     per_batch_stress = []
     for i, (input_batch, expected_batch) in enumerate(dataloader):
         neurons_activations = forward_pass_activations(input_batch, layers_parameters)
@@ -60,6 +58,8 @@ def training_layers(dataloader, layers_parameters, learning_rate):
         update_layers_parameters(neurons_activations, backprop_and_oja_combine_layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
+        if i == training_data_length:
+            break
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters):
