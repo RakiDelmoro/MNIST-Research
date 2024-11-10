@@ -74,7 +74,6 @@ def test_layers(dataloader, layers_parameters, total_samples=100):
     wrong_predictions = []
     model_predictions = []
     for i, (input_image_batch, expected_batch) in enumerate(dataloader):
-        # expected_batch = cp.array(one_hot(expected_batch, num_classes=10))
         expected_batch = cupy_array(expected_batch)
         model_output = forward_pass_activations(input_image_batch, layers_parameters)[-1]
         model_prediction = cp.array(expected_batch.argmax(-1) == (model_output).argmax(-1)).astype(cp.float16).item()
@@ -84,17 +83,11 @@ def test_layers(dataloader, layers_parameters, total_samples=100):
         else:
             wrong_predictions.append((model_output.argmax(-1).item(), expected_batch.argmax(-1).item()))
         
-        if i == total_samples:
+        if i > total_samples:
             break
     
-    print(f"{GREEN}Model Correct Predictions{RESET}")
-    for i, (prediction, expected) in enumerate(correct_predictions):
-        print(f"Digit Image is: {GREEN}{expected}{RESET} Model Predictions: {GREEN}{prediction}{RESET}")
-        if i == 10:
-            break
-    print(f"{RED}Model Wrong Predictions{RESET}")
-    for i, (prediction, expected) in enumerate(wrong_predictions):
-        print(f"Digit Image is: {RED}{expected}{RESET} Model Predictions: {RED}{prediction}{RESET}")
-        if i == 10:
-            break
+    print(f"{GREEN}MODEL Correct Predictions{RESET}")
+    [print(f"Digit Image is: {GREEN}{expected}{RESET} Model Prediction: {GREEN}{prediction}{RESET}") for i, (prediction, expected) in enumerate(correct_predictions) if i < 10]
+    print(f"{RED}MODEL Wrong Predictions{RESET}")
+    [print(f"Digit Image is: {RED}{expected}{RESET} Model Prediction: {RED}{prediction}{RESET}") for i, (prediction, expected) in enumerate(correct_predictions) if i < 10]
     return cp.mean(cp.array(model_predictions)).item()
