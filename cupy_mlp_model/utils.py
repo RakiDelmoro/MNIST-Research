@@ -98,36 +98,3 @@ def test_layers(dataloader, layers_parameters, total_samples=100):
         if i == 10:
             break
     return cp.mean(cp.array(model_predictions)).item()
-
-# def test_layers(dataloader, layers_parameters):
-#     per_batch_accuracy = []
-#     wrong_samples_indices = []
-#     correct_samples_indices = []
-#     model_predictions = []
-#     expected_model_prediction = []
-#     for input_image_batch, expected_batch in dataloader:
-#         # expected_batch = cp.array(one_hot(expected_batch, num_classes=10))
-#         expected_batch = cupy_array(expected_batch)
-#         model_output = forward_pass_activations(input_image_batch, layers_parameters)[-1]
-#         batch_accuracy = cp.array(expected_batch.argmax(-1) == (model_output).argmax(-1)).mean()
-#         correct_indices_in_a_batch = cp.where(expected_batch.argmax(-1) == model_output.argmax(-1))[0]
-#         wrong_indices_in_a_batch = cp.where(~(expected_batch.argmax(-1) == model_output.argmax(-1)))[0]
-
-#         per_batch_accuracy.append(batch_accuracy.item())
-#         correct_samples_indices.append(correct_indices_in_a_batch)
-#         wrong_samples_indices.append(wrong_indices_in_a_batch)
-#         model_predictions.append(model_output.argmax(-1))
-#         expected_model_prediction.append(expected_batch.argmax(-1))
-
-#     model_accuracy = cp.mean(cp.array(per_batch_accuracy))
-#     correct_samples = cp.concatenate(correct_samples_indices)[list(range(0,len(correct_samples_indices)))]
-#     wrong_samples = cp.concatenate(wrong_samples_indices)[list(range(0,len(wrong_samples_indices)))]
-#     model_prediction = cp.concatenate(model_predictions)
-#     model_expected_prediction = cp.concatenate(expected_model_prediction)
-    
-#     print(f"{GREEN}Model Correct Predictions{RESET}")
-#     for indices in correct_samples: print(f"Digit Image is: {GREEN}{model_expected_prediction[indices]}{RESET} Model Prediction: {GREEN}{model_prediction[indices]}{RESET}")
-#     print(f"{RED}Model Wrong Predictions{RESET}")
-#     for indices in wrong_samples: print(f"Digit Image is: {RED}{model_expected_prediction[indices]}{RESET} Model Predictions: {RED}{model_prediction[indices]}{RESET}")
-
-    return model_accuracy
