@@ -18,3 +18,4 @@ def digit_to_image(str_digit):
     image_gray = cv.cvtColor(cp.asnumpy(image_cupy_array), cv.COLOR_RGB2GRAY)
     image_arr_normalized = cv.normalize(image_gray, None, 0, 1, cv.NORM_MINMAX, cv.CV_32F)
     return image, image_arr_normalized.reshape(1, -1)
+ 
