@@ -1,4 +1,5 @@
 import torch
+from utils import digit_generator
 from cupy_utils.utils import one_hot
 from torch.utils.data import DataLoader
 from torchvision import transforms, datasets
@@ -24,9 +25,9 @@ def main():
     validation_dataset = datasets.MNIST('./training-data', download=True, train=False, transform=TRANSFORM, target_transform=TARGET_TRANSFORM)
     training_dataloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    
+
     # neural_network_v3(NETWORK_ARCHITECTURE, training_dataloader, validation_dataloader, LEARNING_RATE)
     # neural_network_v2(NETWORK_ARCHITECTURE, training_dataloader, validation_dataloader, LEARNING_RATE, EPOCHS)
-    cupy_mlp_neural_network(NETWORK_ARCHITECTURE, training_dataloader, validation_dataloader, LEARNING_RATE, EPOCHS)
+    cupy_mlp_neural_network(NETWORK_ARCHITECTURE, training_dataloader, digit_generator(), LEARNING_RATE, EPOCHS)
 
 main()
