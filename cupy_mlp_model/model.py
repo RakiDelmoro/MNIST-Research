@@ -12,10 +12,11 @@ def cupy_mlp_neural_network(network_feature_sizes, training_loader, validation_l
         return training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
 
     def test_run():
-        return test_layers(dataloader=validation_loader, layers_parameters=network_parameters)
+        return test_layers(dataloader=validation_loader, layers_parameters=network_parameters, total_samples=100)
 
     for epoch in range(epochs):
         print(f'EPOCH: {epoch+1}')
         model_stress = training_run()
         model_accuracy = test_run()
+        # print(f'accuracy: {model_accuracy}')
         print(f'Average loss per epoch: {model_stress} accuracy: {model_accuracy}')
