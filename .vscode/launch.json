@@ -12,10 +12,10 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python Debugger: Custom Model 🏃‍♂️",
+            "name": "Python Debugger: MNIST dataset 🏃‍♂️",
             "type": "debugpy",
             "request": "launch",
-            "program": "./main.py",
+            "program": "./mnist_data_runner.py",
             "console": "integratedTerminal"
         },
         {
