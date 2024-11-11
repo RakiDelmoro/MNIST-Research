@@ -1,13 +1,9 @@
 import cupy as cp
-from cupy_utils.utils import one_hot
+from cupy_utils.utils import cupy_array
 from features import GREEN, RED, RESET
-from nn_utils.activation_functions import leaky_relu, softmax
 from nn_utils.loss_functions import cross_entropy_loss
+from nn_utils.activation_functions import leaky_relu, softmax
 from cupy_utils.utils import axons_initialization, dentrites_initialization
-
-
-    # oja_term = theta2 * (cp.dot(current_output.transpose(), neurons_activation) - cp.dot(cp.dot(current_output.transpose(), current_output), layer_axons)
-        
 
 def network_axons_and_dentrites(model_feature_sizes):
     layers_axons_and_dentrites = []
@@ -42,11 +38,12 @@ def get_backward_activations(input_neurons, layers_parameters):
 
 def training_layers(dataloader, parameters, learning_rate):
     loss_per_batch = []
-    for input_batch, expected_batch in dataloader:
+    for i, (input_batch, expected_batch) in enumerate(dataloader):
         forward_activations = get_forward_activations(input_batch, parameters)
         backward_activations = get_backward_activations(expected_batch, parameters)
         network_stress, loss = calculate_network_stress(forward_activations, backward_activations)
         loss_per_batch.append(loss)
+        print(f"Loss each batch {i+1}: {loss}\r", end="", flush=True)
         update_parameters(network_stress, forward_activations, parameters, learning_rate)
     return cp.mean(cp.array(loss_per_batch))
 
@@ -66,41 +63,28 @@ def update_parameters(network_stress, forward_activations, parameters, learning_
     for layer_idx in range(total_parameters):
         layer_axons, layer_dentrites = parameters[-(layer_idx+1)]
         neurons_activation = forward_activations[-(layer_idx+2)]
-        stress = (network_stress[layer_idx]) / neurons_activation.shape[0]
+        stress = network_stress[layer_idx]
 
-        layer_axons -= learning_rate * cp.dot(neurons_activation.transpose(), stress)
-        layer_dentrites -= learning_rate * cp.sum(stress, axis=0)
-
+        layer_axons -= (learning_rate * cp.dot(neurons_activation.transpose(), stress) / neurons_activation.shape[0])
+        layer_dentrites -= (learning_rate * cp.sum(stress, axis=0) / neurons_activation.shape[0])
 
 def test_layers(dataloader, parameters):
-    per_batch_accuracy = []
-    wrong_samples_indices = []
-    correct_samples_indices = []
+    correct_predictions = []
+    wrong_predictions = []
     model_predictions = []
-    expected_model_prediction = []
-    for input_image_batch, expected_batch in dataloader:
-        expected_batch = cp.array(expected_batch)
-        # get the last layer activation
-        model_output = get_forward_activations(input_image_batch, parameters)[-1]
-        batch_accuracy = cp.array(expected_batch.argmax(-1) == (model_output).argmax(-1)).mean()
-        correct_indices_in_a_batch = cp.where(expected_batch.argmax(-1) == model_output.argmax(-1))[0]
-        wrong_indices_in_a_batch = cp.where(~(expected_batch.argmax(-1) == model_output.argmax(-1)))[0]
-
-        per_batch_accuracy.append(batch_accuracy.item())
-        correct_samples_indices.append(correct_indices_in_a_batch)
-        wrong_samples_indices.append(wrong_indices_in_a_batch)
-        model_predictions.append(model_output.argmax(-1))
-        expected_model_prediction.append(expected_batch.argmax(-1))
-
-    model_accuracy = cp.mean(cp.array(per_batch_accuracy))
-    correct_samples = cp.concatenate(correct_samples_indices)[list(range(0,len(correct_samples_indices)))]
-    wrong_samples = cp.concatenate(wrong_samples_indices)[list(range(0,len(wrong_samples_indices)))]
-    model_prediction = cp.concatenate(model_predictions)
-    model_expected_prediction = cp.concatenate(expected_model_prediction)
-    
-    print(f"{GREEN}Model Correct Predictions{RESET}")
-    for indices in correct_samples: print(f"Digit Image is: {GREEN}{model_expected_prediction[indices]}{RESET} Model Prediction: {GREEN}{model_prediction[indices]}{RESET}")
-    print(f"{RED}Model Wrong Predictions{RESET}")
-    for indices in wrong_samples: print(f"Digit Image is: {RED}{model_expected_prediction[indices]}{RESET} Model Predictions: {RED}{model_prediction[indices]}{RESET}")
-
-    return model_accuracy
+    for i, (input_image, expected) in enumerate(dataloader):
+        expected_sample = cupy_array(expected)
+        model_activations = get_forward_activations(input_image, parameters)
+        model_prediction = cp.array(expected_sample.argmax(-1) == model_activations[-1].argmax(-1)).astype(cp.float16).item()
+        model_predictions.append(model_prediction)
+        if model_activations[-1].argmax(-1) == expected_sample.argmax(-1):
+            correct_predictions.append((model_activations[-1].argmax(-1).item(), expected_sample.argmax(-1).item()))
+        else:
+            wrong_predictions.append((model_activations[-1].argmax(-1).item(), expected_sample.argmax(-1).item()))
+        if i > 100:
+            break
+    print(f"{GREEN}MODEL Correct Predictions{RESET}")
+    [print(f"Digit Image is: {GREEN}{expected}{RESET} Model Prediction: {GREEN}{prediction}{RESET}") for i, (prediction, expected) in enumerate(correct_predictions) if i < 10]
+    print(f"{RED}MODEL Wrong Predictions{RESET}")
+    [print(f"Digit Image is: {RED}{expected}{RESET} Model Prediction: {RED}{prediction}{RESET}") for i, (prediction, expected) in enumerate(correct_predictions) if i < 10]
+    return cp.mean(cp.array(model_predictions)).item()
