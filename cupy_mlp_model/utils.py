@@ -16,7 +16,7 @@ def apply_residual_connection(layer_idx, neurons, neurons_activations, axons, in
         neurons = leaky_relu(cp.dot((neurons + pulled_neurons_activation[0]), axons))
     else:
         aggregate_neurons = cp.sum(cp.stack(pulled_neurons_activation), axis=0)
-        neurons = leaky_relu(cp.dot((aggregate_neurons + neurons), axons))
+        neurons = leaky_relu(cp.dot((neurons + aggregate_neurons), axons))
     return neurons
 
 def forward_pass_activations(input_feature, idx_to_apply_residual, layers_parameters):
@@ -26,22 +26,11 @@ def forward_pass_activations(input_feature, idx_to_apply_residual, layers_parame
     for layer_idx in range(total_activations):
         axons = layers_parameters[layer_idx][0]
         if layer_idx in idx_to_apply_residual:
-            neurons = apply_residual_connection(layer_idx, neurons, neurons_activations, axons, idx_to_apply_residual)
+            neurons = leaky_relu(cp.dot(neurons, axons)) + neurons_activations[-layer_idx]
         else:
             neurons = leaky_relu(cp.dot(neurons, axons))
         neurons_activations.append(neurons)
     return neurons_activations
-
-# def forward_pass_activations(input_feature, layers_parameters):
-#     total_activations = len(layers_parameters)
-#     neurons = cp.array(input_feature)
-#     neurons_activations = [neurons]
-#     idx_to_apply_residual = [2**n for n in range(len(layers_parameters)) if 2**n < len(layers_parameters)]
-#     for layer_idx in range(total_activations):
-#         axons = layers_parameters[layer_idx][0]
-#         neurons = leaky_relu(cp.dot(neurons, axons))
-#         neurons_activations.append(neurons)
-#     return neurons_activations
 
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
@@ -52,9 +41,9 @@ def reconstructed_activation_error(activation, axons):
     return avg_reconstructed_error, neurons_reconstructed_error
 
 def calculate_layers_stress(neurons_stress, layers_activations, residual_indexes, layers_parameters):
-    idx_to_aggregate_stress = [(len(layers_activations)-1)-index for index in residual_indexes]
+    idx_to_aggregate_stress = [(len(layers_activations)-1)-index for index in residual_indexes[::-1]]
     backprop_stress_to_aggregate = []
-    oja_reconstructed_error_to_aggregate = []
+    oja_stress_to_aggregate = []
     backprop_and_oja_layers_gradient = []
     total_layers_stress = len(layers_activations)-1
     for each_layer in range(total_layers_stress):
@@ -63,17 +52,20 @@ def calculate_layers_stress(neurons_stress, layers_activations, residual_indexes
         _, neurons_reconstructed_error = reconstructed_activation_error(current_activation, axons)
         if each_layer in idx_to_aggregate_stress:
             if len(backprop_stress_to_aggregate) == 0:
-                layer_gradient = neurons_stress - neurons_reconstructed_error
+                # layer_gradient = neurons_stress - neurons_reconstructed_error
+                layer_gradient = neurons_stress
                 backprop_stress_to_aggregate.append(neurons_stress)
-                oja_reconstructed_error_to_aggregate.append(neurons_reconstructed_error)
+                oja_stress_to_aggregate.append(neurons_reconstructed_error)
             else:
                 backprop_aggregated_stress = cp.sum(cp.stack(backprop_stress_to_aggregate), axis=0)
-                oja_aggregated_stress = cp.sum(cp.stack(oja_reconstructed_error_to_aggregate), axis=0)
-                layer_gradient = backprop_aggregated_stress - oja_aggregated_stress
+                oja_aggregated_stress = cp.sum(cp.stack(oja_stress_to_aggregate), axis=0)
+                # layer_gradient = backprop_aggregated_stress - oja_aggregated_stress
+                layer_gradient = neurons_stress 
                 backprop_stress_to_aggregate.append(neurons_stress)
-                oja_reconstructed_error_to_aggregate.append(neurons_reconstructed_error)
+                oja_stress_to_aggregate.append(neurons_reconstructed_error)
         else:
-            layer_gradient = neurons_stress - neurons_reconstructed_error
+            # layer_gradient = neurons_stress - neurons_reconstructed_error
+            layer_gradient = neurons_stress
         neurons_stress = cp.dot(neurons_stress, axons.transpose())
         backprop_and_oja_layers_gradient.append(layer_gradient)
     return backprop_and_oja_layers_gradient
@@ -86,10 +78,9 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
         backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
-        oja_parameters_nudge = 0.01 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
-
+        # oja_parameters_nudge = 0.01 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
         axons -= (backprop_parameters_nudge / current_activation.shape[0])
-        axons += (oja_parameters_nudge / current_activation.shape[0])
+        # axons += (oja_parameters_nudge / current_activation.shape[0])
 
 def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
