@@ -1,23 +1,46 @@
+import random
 import cupy as cp
 from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import leaky_relu
 from nn_utils.loss_functions import cross_entropy_loss
 
+def apply_residual_connection(layer_idx, neurons_activations, axons, indexes_list):
+    pulled_neurons_activation = []
+    for idx in indexes_list:
+        if idx <= layer_idx:
+            pulled_neurons_activation.append(neurons_activations[idx])
+        else:
+            break
+    if len(pulled_neurons_activation) == 1:
+        neurons = leaky_relu(cp.dot((neurons + pulled_neurons_activation[0]), axons))
+    else:
+        aggregate_neurons = cp.sum(cp.stack(pulled_neurons_activation), axis=0)
+        neurons = leaky_relu(cp.dot((aggregate_neurons + neurons), axons))
+    return neurons
+
 def forward_pass_activations(input_feature, layers_parameters):
     total_activations = len(layers_parameters)
     neurons = cp.array(input_feature)
     neurons_activations = [neurons]
-    layer_idx_to_apply_residual = 0
-    for each in range(total_activations):
-        axons = layers_parameters[each][0]
-        dentrites = layers_parameters[each][1]
-        if layer_idx_to_apply_residual == 8:
-            neurons = neurons_activations[1]
-            layer_idx_to_apply_residual = 0
+    idx_to_apply_residual = [2**n for n in range(len(layers_parameters)) if 2**n < len(layers_parameters)]
+    for layer_idx in range(total_activations):
+        axons = layers_parameters[layer_idx][0]
+        if layer_idx in idx_to_apply_residual:
+            neurons = apply_residual_connection(layer_idx, neurons_activations, axons, idx_to_apply_residual)
         else:
             neurons = leaky_relu(cp.dot(neurons, axons))
-            layer_idx_to_apply_residual += 1
+        neurons_activations.append(neurons)
+    return neurons_activations
+
+def forward_pass_activations(input_feature, layers_parameters):
+    total_activations = len(layers_parameters)
+    neurons = cp.array(input_feature)
+    neurons_activations = [neurons]
+    idx_to_apply_residual = [2**n for n in range(len(layers_parameters)) if 2**n < len(layers_parameters)]
+    for layer_idx in range(total_activations):
+        axons = layers_parameters[layer_idx][0]
+        neurons = leaky_relu(cp.dot(neurons, axons))
         neurons_activations.append(neurons)
     return neurons_activations
 
@@ -56,7 +79,7 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
         axons += (oja_parameters_nudge / current_activation.shape[0])
         # dentrites -= learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0]
 
-def training_layers(dataloader, layers_parameters, learning_rate, training_data_length=1000):
+def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
     for i, (input_batch, expected_batch) in enumerate(dataloader):
         neurons_activations = forward_pass_activations(input_batch, layers_parameters)
@@ -65,8 +88,6 @@ def training_layers(dataloader, layers_parameters, learning_rate, training_data_
         update_layers_parameters(neurons_activations, backprop_and_oja_combine_layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
-        if i == training_data_length:
-            break
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters, total_samples=100):
@@ -82,12 +103,13 @@ def test_layers(dataloader, layers_parameters, total_samples=100):
             correct_predictions.append((model_output.argmax(-1).item(), expected_batch.argmax(-1).item()))
         else:
             wrong_predictions.append((model_output.argmax(-1).item(), expected_batch.argmax(-1).item()))
-        
+
         if i > total_samples:
             break
-    
+    random.shuffle(correct_predictions)
+    random.shuffle(wrong_predictions)
     print(f"{GREEN}MODEL Correct Predictions{RESET}")
     [print(f"Digit Image is: {GREEN}{expected}{RESET} Model Prediction: {GREEN}{prediction}{RESET}") for i, (prediction, expected) in enumerate(correct_predictions) if i < 10]
     print(f"{RED}MODEL Wrong Predictions{RESET}")
-    [print(f"Digit Image is: {RED}{expected}{RESET} Model Prediction: {RED}{prediction}{RESET}") for i, (prediction, expected) in enumerate(correct_predictions) if i < 10]
+    [print(f"Digit Image is: {RED}{expected}{RESET} Model Prediction: {RED}{prediction}{RESET}") for i, (prediction, expected) in enumerate(wrong_predictions) if i < 10]
     return cp.mean(cp.array(model_predictions)).item()
