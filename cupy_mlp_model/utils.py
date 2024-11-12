@@ -30,7 +30,7 @@ def reconstructed_activation_error(activation, axons):
     return avg_reconstructed_error, neurons_reconstructed_error
 
 def calculate_layers_stress(neurons_stress, layers_activations, residual_indexes, layers_parameters):
-    idx_to_aggregate_stress = [(len(layers_activations)-1)-index for index in residual_indexes[::-1]]
+    idx_to_aggregate_stress = [(len(layers_activations))-index for index in residual_indexes[::-1]]
     backprop_stress_to_aggregate = []
     oja_stress_to_aggregate = []
     backprop_and_oja_layers_gradient = []
@@ -41,19 +41,15 @@ def calculate_layers_stress(neurons_stress, layers_activations, residual_indexes
         _, neurons_reconstructed_error = reconstructed_activation_error(current_activation, axons)
         if each_layer in idx_to_aggregate_stress:
             if len(backprop_stress_to_aggregate) == 0:
-                # layer_gradient = neurons_stress - neurons_reconstructed_error
                 layer_gradient = neurons_stress
                 backprop_stress_to_aggregate.append(neurons_stress)
                 oja_stress_to_aggregate.append(neurons_reconstructed_error)
             else:
                 backprop_aggregated_stress = cp.sum(cp.stack(backprop_stress_to_aggregate), axis=0)
-                oja_aggregated_stress = cp.sum(cp.stack(oja_stress_to_aggregate), axis=0)
-                # layer_gradient = backprop_aggregated_stress - oja_aggregated_stress
-                layer_gradient = neurons_stress 
+                layer_gradient = backprop_aggregated_stress
                 backprop_stress_to_aggregate.append(neurons_stress)
                 oja_stress_to_aggregate.append(neurons_reconstructed_error)
         else:
-            # layer_gradient = neurons_stress - neurons_reconstructed_error
             layer_gradient = neurons_stress
         neurons_stress = cp.dot(neurons_stress, axons.transpose())
         backprop_and_oja_layers_gradient.append(layer_gradient)
