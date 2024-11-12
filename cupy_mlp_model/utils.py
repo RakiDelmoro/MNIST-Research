@@ -5,28 +5,17 @@ from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import leaky_relu
 from nn_utils.loss_functions import cross_entropy_loss
 
-def apply_residual_connection(layer_idx, neurons, neurons_activations, axons, indexes_list):
-    pulled_neurons_activation = []
-    for idx in indexes_list:
-        if idx <= layer_idx:
-            pulled_neurons_activation.append(neurons_activations[idx])
-        else:
-            break
-    if len(pulled_neurons_activation) == 1:
-        neurons = leaky_relu(cp.dot((neurons + pulled_neurons_activation[0]), axons))
-    else:
-        aggregate_neurons = cp.sum(cp.stack(pulled_neurons_activation), axis=0)
-        neurons = leaky_relu(cp.dot((neurons + aggregate_neurons), axons))
-    return neurons
-
 def forward_pass_activations(input_feature, idx_to_apply_residual, layers_parameters):
-    total_activations = len(layers_parameters)
     neurons = cp.array(input_feature)
     neurons_activations = [neurons]
-    for layer_idx in range(total_activations):
-        axons = layers_parameters[layer_idx][0]
-        if layer_idx in idx_to_apply_residual:
-            neurons = leaky_relu(cp.dot(neurons, axons)) + neurons_activations[-layer_idx]
+    idx_to_pulled = 0
+    total_activations = len(layers_parameters)+1
+    for layer_idx in range(1, total_activations):
+        axons = layers_parameters[layer_idx-1][0]
+        if layer_idx > 1 and layer_idx in idx_to_apply_residual:
+            activation_idx_to_be_pulled = idx_to_apply_residual[idx_to_pulled]
+            neurons = (leaky_relu(cp.dot(neurons, axons))) + neurons_activations[activation_idx_to_be_pulled]
+            idx_to_pulled += 1
         else:
             neurons = leaky_relu(cp.dot(neurons, axons))
         neurons_activations.append(neurons)
@@ -84,7 +73,7 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
 
 def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
-    residual_idx = [2**n for n in range(len(layers_parameters)) if 2**n < len(layers_parameters)]
+    residual_idx = [(2**n) for n in range(len(layers_parameters)) if 2**n < len(layers_parameters)]
     for i, (input_batch, expected_batch) in enumerate(dataloader):
         neurons_activations = forward_pass_activations(input_batch, residual_idx, layers_parameters)
         avg_last_neurons_stress, neurons_stress_to_backpropagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
