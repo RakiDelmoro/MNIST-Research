@@ -24,34 +24,24 @@ def forward_pass_activations(input_feature, idx_to_apply_residual, layers_parame
         neurons_activations.append(neurons)
     return neurons_activations
 
-def reconstructed_activation_error(activation, axons):
-    # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_activation = cp.dot(leaky_relu(cp.dot(activation, axons.transpose())), axons)
-    neurons_reconstructed_error = activation - reconstructed_activation
-    # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
-    avg_reconstructed_error = cp.sum(cp.linalg.norm(neurons_reconstructed_error)**2) / activation.shape[0]
-    return avg_reconstructed_error, neurons_reconstructed_error
-
-def calculate_layers_stress(neurons_stress, layers_activations, residual_indexes, layers_parameters):
-    idx_to_aggregate_stress = [(len(layers_activations))-index for index in residual_indexes[::-1]]
+def calculate_layers_stress(neurons_stress, layers_parameters, residual_indexes):
+    # indexes of forward pass activation that have residual connection
+    idx_to_aggregate_stress = [(len(layers_parameters))-index for index in residual_indexes[::-1]]
     backprop_stress_to_aggregate = []
-    layers_gradient = []
-    total_layers_stress = len(layers_activations)-1
-    for each_layer in range(total_layers_stress):
-        axons = layers_parameters[-(each_layer+1)][0]
-        current_activation = layers_activations[-(each_layer+1)]
-        _, neurons_reconstructed_error = reconstructed_activation_error(current_activation, axons)
-        if each_layer in idx_to_aggregate_stress:
+    layers_gradient = [neurons_stress]
+    total_layers_stress = len(layers_parameters)-1
+    for layer_idx in range(total_layers_stress):
+        axons = layers_parameters[-(layer_idx+1)][0]
+        if layer_idx in idx_to_aggregate_stress:
             backprop_stress_to_aggregate.append(neurons_stress)
             if len(backprop_stress_to_aggregate) == 1:
-                layer_gradient = neurons_stress
+                neurons_stress = neurons_stress
             else:
                 backprop_aggregated_stress = cp.sum(cp.stack(backprop_stress_to_aggregate), axis=0)
-                layer_gradient = backprop_aggregated_stress
+                neurons_stress = backprop_aggregated_stress
         else:
-            layer_gradient = neurons_stress
-        neurons_stress = cp.dot(neurons_stress, axons.transpose())
-        layers_gradient.append(layer_gradient)
+            neurons_stress = cp.dot(neurons_stress, axons.transpose())
+        layers_gradient.append(neurons_stress)
     return layers_gradient
 
 def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
@@ -59,22 +49,20 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
     for layer_idx in range(total_parameters):
         axons = layers_parameters[-(layer_idx+1)][0]
         dentrites = layers_parameters[-(layer_idx+1)][1]
-        current_activation = neurons_activations[-(layer_idx+1)]
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
+        
         backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
-        # oja_parameters_nudge = 0.01 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
-        axons -= (backprop_parameters_nudge / current_activation.shape[0])
-        dentrites -= ((learning_rate * cp.sum(loss, axis=0)) / current_activation.shape[0])
-        # axons += (oja_parameters_nudge / current_activation.shape[0])
+        axons -= (backprop_parameters_nudge / previous_activation.shape[0])
+        dentrites -= ((learning_rate * cp.sum(loss, axis=0)) / previous_activation.shape[0])
 
 def residual_training_layers(dataloader, layers_parameters, residual_idx, learning_rate):
     per_batch_stress = []
     for i, (input_batch, expected_batch) in enumerate(dataloader):
         neurons_activations = forward_pass_activations(input_batch, residual_idx, layers_parameters)
         avg_last_neurons_stress, neurons_stress_to_backpropagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
-        backprop_and_oja_combine_layers_stress = calculate_layers_stress(neurons_stress_to_backpropagate, neurons_activations, residual_idx, layers_parameters)
-        update_layers_parameters(neurons_activations, backprop_and_oja_combine_layers_stress, layers_parameters, learning_rate)
+        layers_stress = calculate_layers_stress(neurons_stress_to_backpropagate, layers_parameters, residual_idx)
+        update_layers_parameters(neurons_activations, layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
     return cp.mean(cp.array(per_batch_stress))
