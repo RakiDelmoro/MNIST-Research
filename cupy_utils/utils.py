@@ -9,27 +9,27 @@ def cupy_array(x):
 def one_hot(x, number_of_classes):
     return cupy_array(cp.eye(number_of_classes)[x])
 
-def residual_axons_and_dentrites_initialization(network_feature_sizes):
-    neurons_sizes_pulled = [2**i for i in range(8)]
-    residual_connection_idx = 0
+def residual_axons_and_dentrites_initialization(network_feature_sizes, residual_neurons_sizes):
+    neurons_size_idx = 0
     network_axons_and_dentrites = []
     for idx in range(len(network_feature_sizes)-1):
-        residual_idx = 0 if residual_connection_idx >= len(neurons_sizes_pulled) else residual_connection_idx
+        residual_idx = 0 if neurons_size_idx >= len(residual_neurons_sizes) else neurons_size_idx
         first_layer = idx == 0
         if first_layer:
             input_nodes_size = network_feature_sizes[idx]
             output_nodes_size = network_feature_sizes[idx+1]
         else:
-            pulled_neurons_sizes =  neurons_sizes_pulled[-(residual_idx+1):]
-            neurons_pulled_size = pulled_neurons_sizes[-1] if len(pulled_neurons_sizes) == 1 else sum(pulled_neurons_sizes)
-            input_nodes_size = network_feature_sizes[idx] + neurons_pulled_size
+            neurons_sizes =  residual_neurons_sizes[-(residual_idx+1):]
+            total_neurons_size_pulled = neurons_sizes[-1] if len(neurons_sizes) == 1 else sum(neurons_sizes)
+            input_nodes_size = network_feature_sizes[idx] + total_neurons_size_pulled
             output_nodes_size = network_feature_sizes[idx+1]
-            if residual_connection_idx < len(neurons_sizes_pulled):
-                residual_connection_idx += 1
+            continue_applying_residual = neurons_size_idx < len(residual_neurons_sizes)
+            if continue_applying_residual:
+                neurons_size_idx += 1
             else:
                 input_nodes_size = network_feature_sizes[idx]
                 output_nodes_size = network_feature_sizes[idx+1]
-                residual_connection_idx = 0
+                neurons_size_idx = 0
         axons, dentrites = axons_and_dentrites_initialization(input_nodes_size, output_nodes_size)
         network_axons_and_dentrites.append([axons, dentrites])
     return network_axons_and_dentrites
@@ -41,9 +41,7 @@ def axons_and_dentrites_initialization(input_feature, output_feature):
     fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(weights)
     bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
     torch.nn.init.uniform_(bias, -bound, bound)
-
     # weights = cp.random.randn(input_feature, output_feature) * 0.01
-
     return cupy_array(weights), cupy_array(bias)
 
 def axons_initialization(input_feature, output_feature):
