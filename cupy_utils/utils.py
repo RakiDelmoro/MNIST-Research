@@ -9,28 +9,20 @@ def cupy_array(x):
 def one_hot(x, number_of_classes):
     return cupy_array(cp.eye(number_of_classes)[x])
 
-def residual_axons_and_dentrites_initialization(network_feature_sizes, residual_neurons_sizes):
-    neurons_size_idx = 0
+def residual_axons_and_dentrites_initialization(network_feature_sizes, layers_idx_with_residual_connection):
+    idx_to_pulled = 1
     network_axons_and_dentrites = []
-    for idx in range(len(network_feature_sizes)-1):
-        residual_idx = 0 if neurons_size_idx >= len(residual_neurons_sizes) else neurons_size_idx
-        first_layer = idx == 0
-        if first_layer:
-            input_nodes_size = network_feature_sizes[idx]
-            output_nodes_size = network_feature_sizes[idx+1]
-        else:
-            neurons_sizes =  residual_neurons_sizes[-(residual_idx+1):]
-            total_neurons_size_pulled = neurons_sizes[-1] if len(neurons_sizes) == 1 else sum(neurons_sizes)
-            input_nodes_size = network_feature_sizes[idx] + total_neurons_size_pulled
-            output_nodes_size = network_feature_sizes[idx+1]
-            continue_applying_residual = neurons_size_idx < len(residual_neurons_sizes)
-            if continue_applying_residual:
-                neurons_size_idx += 1
+    for layer_axons_idx in range(len(network_feature_sizes)-1):
+        if layer_axons_idx not in layers_idx_with_residual_connection:
+            if layer_axons_idx > 0:
+                axons, dentrites = axons_and_dentrites_initialization(network_feature_sizes[layer_axons_idx]+total_neurons, network_feature_sizes[layer_axons_idx+1])
             else:
-                input_nodes_size = network_feature_sizes[idx]
-                output_nodes_size = network_feature_sizes[idx+1]
-                neurons_size_idx = 0
-        axons, dentrites = axons_and_dentrites_initialization(input_nodes_size, output_nodes_size)
+                axons, dentrites = axons_and_dentrites_initialization(network_feature_sizes[layer_axons_idx], network_feature_sizes[layer_axons_idx+1])
+        else:
+            residual_neurons_sizes = layers_idx_with_residual_connection[-idx_to_pulled:]
+            total_neurons = layers_idx_with_residual_connection[-1] if len(residual_neurons_sizes) == 1 else sum(residual_neurons_sizes)
+            axons, dentrites = axons_and_dentrites_initialization(network_feature_sizes[layer_axons_idx]+total_neurons, network_feature_sizes[layer_axons_idx+1])
+            idx_to_pulled += 1
         network_axons_and_dentrites.append([axons, dentrites])
     return network_axons_and_dentrites
 
