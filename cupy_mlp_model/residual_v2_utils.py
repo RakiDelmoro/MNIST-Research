@@ -5,22 +5,22 @@ from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
 
-def apply_residual_connection(neurons_activations, axons, dentrites, layer_idx_to_pull_residual_neurons):
+def apply_residual_connection(neurons_activations, axons, dentrites, layers_index_to_pull_for_residual_connection):
     neurons_for_next_layer = []
-    previous_layer_idx_to_be_pulled = 1
+    reidual_idx = 1
     previous_neurons_activations = neurons_activations[::-1]
     for layer_activation_idx in range(len(previous_neurons_activations)):
-        if layer_activation_idx not in layer_idx_to_pull_residual_neurons:
+        if layer_activation_idx not in layers_index_to_pull_for_residual_connection:
             layer_no_residual = layer_activation_idx > 0
             if layer_no_residual: continue
             residual_neurons = previous_neurons_activations[layer_activation_idx]
             neurons_for_next_layer.append(residual_neurons)
         else:
-            previous_layer_idx_to_be_pulled = 1 if previous_layer_idx_to_be_pulled > len(layer_idx_to_pull_residual_neurons) else previous_layer_idx_to_be_pulled
-            neurons_size_pulled = layer_idx_to_pull_residual_neurons[-previous_layer_idx_to_be_pulled]
+            reidual_idx = 1 if reidual_idx > len(layers_index_to_pull_for_residual_connection) else reidual_idx
+            neurons_size_pulled = layers_index_to_pull_for_residual_connection[-reidual_idx]
             residual_neurons = previous_neurons_activations[layer_activation_idx][:, :neurons_size_pulled]
             neurons_for_next_layer.append(residual_neurons)
-            previous_layer_idx_to_be_pulled += 1
+            reidual_idx += 1
     input_neurons = cp.concatenate(neurons_for_next_layer, axis=-1)
     return relu((cp.dot(input_neurons, axons)) + dentrites), input_neurons
 
