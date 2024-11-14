@@ -2,7 +2,7 @@ import random
 import cupy as cp
 from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
-from nn_utils.activation_functions import leaky_relu, relu
+from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
 
 def forward_pass_activations(input_feature, layers_parameters):
