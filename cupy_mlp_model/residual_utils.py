@@ -5,7 +5,6 @@ from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
 
-
 def forward_pass_activations(input_feature, idx_to_apply_residual, layers_parameters):
     neurons = cp.array(input_feature)
     total_activations = len(layers_parameters)+1
