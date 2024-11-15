@@ -38,44 +38,39 @@ def forward_pass_activations(neurons, layers_parameters, previous_layer_pulled):
         neurons_inputs.append(input_neurons)
     return neurons_inputs, neurons_activations
 
-def aggregate_residual_stress(layers_neurons_stress, activation, axons, residual_connections_idx):
-    # aggregated_neurons_stress = []
-    # neurons_stress_idx_pulled = 1
-    # # FROM: Output layer to Hidden layer TO: Hidden layer to Output layer
-    # previous_layers_neurons_stress = layers_neurons_stress[::-1]
-    # for neurons_stress_idx in range(len(layers_neurons_stress)):
-    #     if neurons_stress_idx not in residual_connections_idx:
-    #         if neurons_stress_idx > 0: continue
-    #         residual_stress = previous_layers_neurons_stress[neurons_stress_idx]
-    #         aggregated_neurons_stress.append(residual_stress)
-    #     else:
-    #         neurons_stress_idx_pulled = 1 if neurons_stress_idx_pulled > len(residual_connections_idx) else neurons_stress_idx_pulled
-    #         neurons_stress_size_pulled = residual_connections_idx[-neurons_stress_idx_pulled]
-    #         residual_stress = previous_layers_neurons_stress[neurons_stress_idx][:, :neurons_stress_size_pulled]
-    #         aggregated_neurons_stress.append(residual_stress)
-    #         neurons_stress_idx_pulled += 1
-    #TODO: Create a function that's return aggregated neurons stress for a given layer that has a residual connection coming from previous activations
-    pass
+def aggregate_residual_neurons_stress(layers_neurons_stress, residual_connections_idx):
+    # TODO: REFACTOR: avoid hard coded
+    aggregated_neurons_stress = [layers_neurons_stress[0]]
+    layers_neurons_stress_sizes = residual_connections_idx[::-1]
+    for neurons_stress_idx in range(len(layers_neurons_stress)-1):
+        neuron_loss_idx = neurons_stress_idx+1
+        neurons_stress = layers_neurons_stress[neuron_loss_idx]
+        for idx, neurons_size in enumerate(layers_neurons_stress_sizes):
+            pulled_neuron_stress = neurons_stress[:, 200:][:, :neurons_size]
+            # Aggregate neurons stress to it's corresponding residual connection
+            layers_neurons_stress[residual_connections_idx[idx]+2][:, :neurons_size] += pulled_neuron_stress
+        aggregated_neurons_stress.append(neurons_stress[:, :200])
+    return aggregated_neurons_stress
 
 def calculate_residual_layers_stress(last_layer_neurons_stress, input_neurons, layers_parameters, residual_connections):
-    layers_neurons_size = layers_parameters[1][0].shape[1]
+    layers_post_activation_size = layers_parameters[0][0].shape[-1]
     neurons_stress = last_layer_neurons_stress
     layers_stress = [last_layer_neurons_stress]
     total_layers_stress = len(layers_parameters)-1
     for layer_idx in range(total_layers_stress):
         activation = input_neurons[-(layer_idx+1)]
         axons = layers_parameters[-(layer_idx+1)][0]
-        # Get the neurons stress for each layer
-        neurons_stress = (cp.dot(neurons_stress, axons.transpose()) * relu(activation, return_derivative=True))[:, :layers_neurons_size]
-    return layers_stress
+        neurons_stress = cp.dot(neurons_stress, axons.transpose()) * relu(activation, return_derivative=True)
+        layers_stress.append(neurons_stress)
+        neurons_stress = neurons_stress[:, :layers_post_activation_size]
+    return aggregate_residual_neurons_stress(layers_stress, residual_connections)
 
 def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
-    #TODO: Should aggregate the information of neurons loss for residual neurons
     total_parameters = len(layers_losses)
     for layer_idx in range(total_parameters):
         axons = layers_parameters[-(layer_idx+1)][0]
         dentrites = layers_parameters[-(layer_idx+1)][1]
-        previous_activation = neurons_activations[-(layer_idx+2)]
+        previous_activation = neurons_activations[-(layer_idx+1)]
         loss = layers_losses[layer_idx]
         backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
         axons -= (backprop_parameters_nudge / previous_activation.shape[0])
@@ -87,7 +82,7 @@ def residual_training_layers(dataloader, layers_parameters, residual_neurons_siz
         pre_activations_neurons, post_activations_neurons = forward_pass_activations(input_batch, layers_parameters, residual_neurons_sizes)
         avg_last_neurons_stress, neurons_stress_to_backpropagate = cross_entropy_loss(post_activations_neurons[-1], cp.array(expected_batch))
         layers_stress = calculate_residual_layers_stress(neurons_stress_to_backpropagate, pre_activations_neurons, layers_parameters, residual_neurons_sizes)
-        update_layers_parameters(post_activations_neurons, layers_stress, layers_parameters, learning_rate)
+        update_layers_parameters(pre_activations_neurons, layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
     return cp.mean(cp.array(per_batch_stress))
@@ -98,7 +93,7 @@ def residual_test_layers(dataloader, layers_parameters, residual_idx):
     model_predictions = []
     for i, (input_image_batch, expected_batch) in enumerate(dataloader):
         expected_batch = cupy_array(expected_batch)
-        model_output = forward_pass_activations(input_image_batch, residual_idx, layers_parameters)[-1]
+        model_output = forward_pass_activations(input_image_batch, layers_parameters, residual_idx)[-1][-1]
         batched_accuracy = cp.array(expected_batch.argmax(-1) == (model_output).argmax(-1)).astype(cp.float16).mean()
         for each in range(100):
             if model_output[each].argmax(-1) == expected_batch[each].argmax(-1):
@@ -123,3 +118,5 @@ def model(network_architecture, residual_idx_connections, training_loader, valid
         model_accuracy = residual_test_layers(dataloader=validation_loader, layers_parameters=network_parameters, residual_idx=residual_idx_connections)
         # print(f'accuracy: {model_accuracy}')
         print(f'Average loss per epoch: {model_stress} accuracy: {model_accuracy}')
+
+
