@@ -24,6 +24,20 @@
             "request": "launch",
             "program": "./torch_model_runner.py",
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "Python Debugger: Backpropagation 🏃‍♂️",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./backpropagation_runner.py",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python Debugger: Oja's rule 🏃‍♂️",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./oja_runner.py",
+            "console": "integratedTerminal"
+        },
     ]
 }
