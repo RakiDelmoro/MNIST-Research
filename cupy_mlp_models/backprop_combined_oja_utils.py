@@ -21,7 +21,7 @@ def forward_pass_activations(input_feature, layers_parameters):
 
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_activation = cp.dot(relu(cp.dot(activation, axons.transpose())), axons)
+    reconstructed_activation = cp.dot((relu(cp.dot(activation, axons.transpose()))), axons)
     neurons_reconstructed_error = activation - reconstructed_activation
     # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
     avg_reconstructed_error = cp.sum(cp.linalg.norm(neurons_reconstructed_error)**2) / activation.shape[0]
@@ -37,7 +37,7 @@ def calculate_layers_stress(neurons_stress, layers_activations, layers_parameter
         previous_activation = layers_activations[-(each_layer+2)]
         neurons_error, avg_error = reconstructed_activation_error(activation, axons)
         layer_gradient = neurons_stress 
-        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * relu(previous_activation, return_derivative=True)
+        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * relu(input_data=previous_activation, return_derivative=True)
         layers_gradient.append(layer_gradient)
         reconstructed_errors.append(avg_error)
     return layers_gradient, cp.mean(cp.array(reconstructed_errors))
