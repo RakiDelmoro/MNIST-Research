@@ -39,5 +39,12 @@
             "program": "./oja_runner.py",
             "console": "integratedTerminal"
         },
+        {
+            "name": "Python Debugger: Residual Network 🏃‍♂️",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "./residual_v2_runner.py",
+            "console": "integratedTerminal"
+        },
     ]
 }
