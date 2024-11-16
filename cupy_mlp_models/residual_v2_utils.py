@@ -7,8 +7,8 @@ from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
 def apply_residual_connection(neurons_activations, axons, dentrites, layers_index_to_pull_for_residual_connection):
-    neurons_for_next_layer = []
     reidual_idx = 1
+    neurons_for_next_layer = []
     previous_neurons_activations = neurons_activations[::-1]
     for layer_activation_idx in range(len(previous_neurons_activations)):
         if layer_activation_idx not in layers_index_to_pull_for_residual_connection:
@@ -38,18 +38,22 @@ def forward_pass_activations(neurons, layers_parameters, previous_layer_pulled):
         neurons_inputs.append(input_neurons)
     return neurons_inputs, neurons_activations
 
-def aggregate_residual_neurons_stress(layers_neurons_stress, residual_connections_idx):
-    # TODO: REFACTOR: avoid hard coded
+def aggregate_residual_neurons_stress(layers_neurons_stress, post_activation_size, residual_connections_idx):
+    residual_idx = 1
+    total_residual_connection = len(residual_connections_idx)
     aggregated_neurons_stress = [layers_neurons_stress[0]]
-    layers_neurons_stress_sizes = residual_connections_idx[::-1]
-    for neurons_stress_idx in range(len(layers_neurons_stress)-1):
-        neuron_loss_idx = neurons_stress_idx+1
-        neurons_stress = layers_neurons_stress[neuron_loss_idx]
-        for idx, neurons_size in enumerate(layers_neurons_stress_sizes):
-            pulled_neuron_stress = neurons_stress[:, 200:][:, :neurons_size]
-            # Aggregate neurons stress to it's corresponding residual connection
-            layers_neurons_stress[residual_connections_idx[idx]+2][:, :neurons_size] += pulled_neuron_stress
-        aggregated_neurons_stress.append(neurons_stress[:, :200])
+    input_to_output_layers_stress = layers_neurons_stress[::-1]
+    for neurons_stress_idx in range(len(layers_neurons_stress)-2, -1, -1):
+        neurons_stress = input_to_output_layers_stress[neurons_stress_idx]
+        if neurons_stress_idx < residual_connections_idx[-residual_idx]:
+            residual_idx += 1
+            total_residual_connection -= 1
+        for idx in range(total_residual_connection):
+            idx_stress_to_aggregate = residual_connections_idx[idx]+1
+            neurons_size = residual_connections_idx[-(idx+residual_idx)]
+            neurons_stress_to_aggregate = neurons_stress[:, post_activation_size:][:, :neurons_size]
+            layers_neurons_stress[idx_stress_to_aggregate][:, :neurons_size] += neurons_stress_to_aggregate
+        aggregated_neurons_stress.append(neurons_stress[:, :post_activation_size])
     return aggregated_neurons_stress
 
 def calculate_residual_layers_stress(last_layer_neurons_stress, input_neurons, layers_parameters, residual_connections):
@@ -63,7 +67,7 @@ def calculate_residual_layers_stress(last_layer_neurons_stress, input_neurons, l
         neurons_stress = cp.dot(neurons_stress, axons.transpose()) * relu(activation, return_derivative=True)
         layers_stress.append(neurons_stress)
         neurons_stress = neurons_stress[:, :layers_post_activation_size]
-    return aggregate_residual_neurons_stress(layers_stress, residual_connections)
+    return aggregate_residual_neurons_stress(layers_stress, layers_post_activation_size, residual_connections)
 
 def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_losses)
