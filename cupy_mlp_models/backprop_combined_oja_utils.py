@@ -7,18 +7,20 @@ from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import axons_and_dentrites_initialization
 
 def forward_pass_activations(input_feature, layers_parameters):
-    neurons = cp.array(input_feature)
+    neurons_activation = cp.array(input_feature)
     total_activations = len(layers_parameters)
-    neurons_activations = [neurons]
+    neurons_activations = [neurons_activation]
     for layer_idx in range(total_activations):
         axons = layers_parameters[layer_idx][0]
-        neurons = cp.dot(neurons, axons) #if layer_idx == total_activations-1 else leaky_relu(cp.dot(neurons, axons))
+        neurons = cp.dot(neurons_activation, axons)
+        neurons_activation = neurons if layer_idx == total_activations-1 else leaky_relu(neurons)
         neurons_activations.append(neurons)
     return neurons_activations
 
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_activation = cp.dot(cp.dot(activation, axons.transpose()), axons)
+    reconstructed_previous_activation = leaky_relu(cp.dot(activation, axons.transpose()))
+    reconstructed_activation = cp.dot(reconstructed_previous_activation, axons)
     neurons_reconstructed_error = activation - reconstructed_activation
     # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
     avg_reconstructed_error = cp.sum(cp.linalg.norm(neurons_reconstructed_error)**2) / activation.shape[0]
@@ -34,7 +36,7 @@ def calculate_layers_stress(neurons_stress, layers_activations, layers_parameter
         previous_activation = layers_activations[-(each_layer+2)]
         avg_error = reconstructed_activation_error(activation, axons)
         layer_gradient = neurons_stress 
-        neurons_stress = cp.dot(neurons_stress, axons.transpose())
+        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * (leaky_relu(previous_activation, True))
         layers_gradient.append(layer_gradient)
         reconstructed_errors.append(avg_error)
     return layers_gradient, cp.mean(cp.array(reconstructed_errors))
