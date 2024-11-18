@@ -26,7 +26,7 @@ def calculate_layers_stress(neurons_stress, neurons_activations, layers_paramete
     for each_layer in range(total_layers_stress):
         activation = neurons_activations[-(each_layer+2)]
         axons = layers_parameters[-(each_layer+1)][0]
-        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * relu(input_data=activation, return_derivative=True)
+        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * (relu(input_data=activation, return_derivative=True))
         layers_gradient.append(neurons_stress)
     return layers_gradient
 
@@ -51,6 +51,8 @@ def training_layers(dataloader, layers_parameters, learning_rate):
         update_layers_parameters(neurons_activations, layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
+        if i == 1000:
+            break
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters):
