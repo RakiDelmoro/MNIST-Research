@@ -103,7 +103,7 @@ def update_layers_parameters(pre_activations_neurons, post_activations_neurons, 
         previous_activation = pre_activations_neurons[-(layer_idx+1)]
         loss = layers_losses[layer_idx]
         backprop_parameters_nudge = 0.001 * cp.dot(previous_activation.transpose(), loss)
-        oja_parameters_nudge = 0.00001 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
+        oja_parameters_nudge = 0.0001 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
         axons -= (backprop_parameters_nudge / previous_activation.shape[0])
         # dentrites -= (learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0])
         axons += (oja_parameters_nudge / current_activation.shape[0])
