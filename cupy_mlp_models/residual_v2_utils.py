@@ -43,7 +43,8 @@ def reconstructed_activation_error(activation, axons):
     avg_reconstructed_error = cp.sum(cp.linalg.norm(neurons_reconstructed_error)**2) / activation.shape[0]
     return avg_reconstructed_error
 
-def aggregate_residual_neurons_stress(layers_neurons_stress, post_activation_size, residual_connections_idx):
+def apply_residual_neurons_stress(layers_neurons_stress, post_activation_size, residual_connections_idx):
+    #TODO: REFACTOR!
     residual_idx = 1
     total_residual_connection = len(residual_connections_idx)
     aggregated_neurons_stress = [layers_neurons_stress[0]]
@@ -76,7 +77,7 @@ def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_
         neurons_stress = neurons_stress[:, :layers_post_activation_size]
         reconstructed_activation_avg_stress = reconstructed_activation_error(post_activation_neurons, axons)
         activation_reconstructed_stress.append(reconstructed_activation_avg_stress)
-    return aggregate_residual_neurons_stress(layers_stress, layers_post_activation_size, residual_connections), cp.mean(cp.array(activation_reconstructed_stress))
+    return apply_residual_neurons_stress(layers_stress, layers_post_activation_size, residual_connections), cp.mean(cp.array(activation_reconstructed_stress))
 
 def update_layers_parameters(pre_activations_neurons, post_activations_neurons, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_losses)
