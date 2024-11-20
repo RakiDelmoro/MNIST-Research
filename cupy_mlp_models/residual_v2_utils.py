@@ -6,23 +6,27 @@ from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
-def apply_residual_connection(neurons_activations, axons, dentrites, step_back_sizes):
+def apply_residual_neurons(layer_idx, last_layer_idx, neurons_activations, axons, dentrites, step_back_sizes):
     residual_idx = step_back_sizes
     input_neurons_for_next_layer = [neurons_activations[-1]]
-    for activation_idx in range(len(neurons_activations)):
+    for activation_idx in range(layer_idx, len(neurons_activations)):
         for each_step_back in residual_idx:
             step_back_not_allowed = activation_idx <= each_step_back
             if step_back_not_allowed:
                 break
             else:
                 residual_neurons_size = neurons_activations[1].shape[-1] // each_step_back
-                residual_neurons = neurons_activations[-(activation_idx+1)][:, :residual_neurons_size]
+                residual_neurons = neurons_activations[-(each_step_back+1)][:, :residual_neurons_size]
                 input_neurons_for_next_layer.append(residual_neurons)
                 residual_idx = [each for each in residual_idx if each != each_step_back]
     pre_neurons_activation = cp.concatenate(input_neurons_for_next_layer, axis=-1)
-    return pre_neurons_activation, cp.dot(pre_neurons_activation, axons)
+    if activation_idx == last_layer_idx-1:
+        return pre_neurons_activation, cp.dot(pre_neurons_activation, axons)
+    else:
+        return pre_neurons_activation, relu(cp.dot(pre_neurons_activation, axons))
 
 def forward_pass_activations(neurons, layers_parameters, residual_sizes):
+    last_layer_idx = len(layers_parameters)
     pre_activation_neurons = cp.array(neurons)
     pre_neurons_activations = []
     post_neurons_activations = [pre_activation_neurons]
@@ -30,7 +34,7 @@ def forward_pass_activations(neurons, layers_parameters, residual_sizes):
     for layer_idx in range(total_activations):
         axons = layers_parameters[layer_idx][0]
         dentrites = layers_parameters[layer_idx][1]
-        pre_activation_neurons, post_activation_neurons = apply_residual_connection(post_neurons_activations, axons, dentrites, residual_sizes)
+        pre_activation_neurons, post_activation_neurons = apply_residual_neurons(layer_idx, last_layer_idx, post_neurons_activations, axons, dentrites, residual_sizes)
         pre_neurons_activations.append(pre_activation_neurons)
         post_neurons_activations.append(post_activation_neurons)
     return pre_neurons_activations, post_neurons_activations
@@ -62,15 +66,6 @@ def aggregate_residual_neurons_stress(layers_neurons_stress, post_activation_siz
         aggregated_neurons_stress.append(neurons_stress[:, :post_activation_size])
     return aggregated_neurons_stress
 
-def reconstructed_activation_error(activation, axons):
-    # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_previous_activation = cp.dot(activation, axons.transpose())
-    reconstructed_activation = cp.dot(reconstructed_previous_activation, axons)
-    neurons_reconstructed_error = activation - reconstructed_activation
-    # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
-    avg_reconstructed_error = cp.sum(cp.linalg.norm(neurons_reconstructed_error)**2) / activation.shape[0]
-    return avg_reconstructed_error
-
 def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_neurons, post_activations_neurons, layers_parameters, residual_connections):
     activation_reconstructed_stress = []
     layers_post_activation_size = layers_parameters[0][0].shape[-1]
@@ -78,14 +73,14 @@ def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_
     layers_stress = [last_layer_neurons_stress]
     total_layers_stress = len(layers_parameters)-1
     for layer_idx in range(total_layers_stress):
-        post_activation_neurons = post_activations_neurons[-(layer_idx+1)]
-        pre_activation_neurons = pre_activations_neurons[-(layer_idx+1)]
         axons = layers_parameters[-(layer_idx+1)][0]
-        reconstructed_activation_avg_stress = reconstructed_activation_error(post_activation_neurons, axons)
+        pre_activation_neurons = pre_activations_neurons[-(layer_idx+1)]
+        post_activation_neurons = post_activations_neurons[-(layer_idx+1)]
         neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * (relu(pre_activation_neurons))
         layers_stress.append(neurons_stress)
-        activation_reconstructed_stress.append(reconstructed_activation_avg_stress)
         neurons_stress = neurons_stress[:, :layers_post_activation_size]
+        reconstructed_activation_avg_stress = reconstructed_activation_error(post_activation_neurons, axons)
+        activation_reconstructed_stress.append(reconstructed_activation_avg_stress)
     return aggregate_residual_neurons_stress(layers_stress, layers_post_activation_size, residual_connections), cp.mean(cp.array(activation_reconstructed_stress))
 
 def update_layers_parameters(pre_activations_neurons, post_activations_neurons, layers_losses, layers_parameters, learning_rate):
