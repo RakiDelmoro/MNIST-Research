@@ -44,7 +44,6 @@ def reconstructed_activation_error(activation, axons):
     return avg_reconstructed_error
 
 def apply_residual_neurons_stress(layers_neurons_stress, post_activation_size, residual_connections_idx):
-    #TODO: REFACTOR!
     residual_idx = 1
     total_residual_connection = len(residual_connections_idx)
     aggregated_neurons_stress = [layers_neurons_stress[0]]
@@ -62,6 +61,15 @@ def apply_residual_neurons_stress(layers_neurons_stress, post_activation_size, r
         aggregated_neurons_stress.append(neurons_stress[:, :post_activation_size])
     return aggregated_neurons_stress
 
+def apply_residual_neurons_stress(layer_loss_idx, layers_losses, axons, neurons_activations):
+    #TODO: Refactor make the function kind of similar to apply_residual_neurons_stress
+    '''
+    layer_loss_to_aggregate = []
+    loop into step back sizes and pulled the previous layer loss based on step back size
+    return: aggregated loss based on the layer_loss_idx in it's stepback neurons stress if it's have
+    '''
+    pass
+
 def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_neurons, post_activations_neurons, layers_parameters, residual_connections):
     activation_reconstructed_stress = []
     layers_post_activation_size = layers_parameters[0][0].shape[-1]
@@ -78,6 +86,17 @@ def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_
         reconstructed_activation_avg_stress = reconstructed_activation_error(post_activation_neurons, axons)
         activation_reconstructed_stress.append(reconstructed_activation_avg_stress)
     return apply_residual_neurons_stress(layers_stress, layers_post_activation_size, residual_connections), cp.mean(cp.array(activation_reconstructed_stress))
+
+def calculate_residual_neurons_stress():
+    #TODO: Refactor make the function kind of similar to forward_pass_activations
+    '''
+    layers_loss = []
+    loop into number of network parameters
+    axons = layers_parameters[each]
+    layer_loss = apply_residual_neurons_stress()
+    layers_loss.append(layer_loss)
+    '''
+    pass
 
 def update_layers_parameters(pre_activations_neurons, post_activations_neurons, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_losses)
