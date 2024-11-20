@@ -14,8 +14,9 @@ def residual_axons_and_dentrites_initialization(network_feature_sizes, step_back
     total_residual_neurons_size = 0
     network_axons_and_dentrites = []
     for layer_axons_idx in range(len(network_feature_sizes)-1):
-        total_activation_stepback_for_residual = step_back_sizes[(step_back_idx if step_back_idx < len(step_back_sizes) else len(step_back_sizes)-1)]
-        apply_residual_connection = layer_axons_idx > total_activation_stepback_for_residual
+        step_back_idx = step_back_idx if step_back_idx < len(step_back_sizes) else len(step_back_sizes)-1
+        total_activation_step_back_for_residual = step_back_sizes[step_back_idx]
+        apply_residual_connection = layer_axons_idx > total_activation_step_back_for_residual
         if apply_residual_connection:
             total_residual_neurons_size = sum([network_feature_sizes[1]//each for each in step_back_sizes[:step_back_idx+1]])
             input_neurons_size = network_feature_sizes[layer_axons_idx] + total_residual_neurons_size
