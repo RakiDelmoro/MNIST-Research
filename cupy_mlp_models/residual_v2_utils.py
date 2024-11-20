@@ -6,19 +6,19 @@ from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
-def apply_residual_connection(layer_idx, neurons_activations, axons, dentrites, layers_index_to_pull_for_residual_connection):
+def apply_residual_connection(layer_idx, neurons_activations, axons, dentrites, step_back_sizes):
     reidual_idx = 1
     neurons_for_next_layer = []
     previous_neurons_activations = neurons_activations[::-1]
     for layer_activation_idx in range(len(previous_neurons_activations)):
-        if layer_activation_idx not in layers_index_to_pull_for_residual_connection:
+        if layer_activation_idx not in step_back_sizes:
             layer_no_residual = layer_activation_idx > 0
             if layer_no_residual: continue
             residual_neurons = previous_neurons_activations[layer_activation_idx]
             neurons_for_next_layer.append(residual_neurons)
         else:
-            reidual_idx = 1 if reidual_idx > len(layers_index_to_pull_for_residual_connection) else reidual_idx
-            neurons_size_pulled = layers_index_to_pull_for_residual_connection[-reidual_idx]
+            reidual_idx = 1 if reidual_idx > len(step_back_sizes) else reidual_idx
+            neurons_size_pulled = step_back_sizes[-reidual_idx]
             residual_neurons = previous_neurons_activations[layer_activation_idx][:, :neurons_size_pulled]
             neurons_for_next_layer.append(residual_neurons)
             reidual_idx += 1
@@ -61,8 +61,8 @@ def aggregate_residual_neurons_stress(layers_neurons_stress, post_activation_siz
             residual_idx += 1
             total_residual_connection -= 1
         for idx in range(total_residual_connection):
-            idx_stress_to_aggregate = residual_connections_idx[idx]+1
-            neurons_size = residual_connections_idx[-(idx+residual_idx)]
+            idx_stress_to_aggregate = residual_connections_idx[idx] + 1
+            neurons_size = residual_connections_idx[-(idx+1)]
             neurons_stress_to_aggregate = neurons_stress[:, post_activation_size:][:, :neurons_size]
             layers_neurons_stress[idx_stress_to_aggregate][:, :neurons_size] += neurons_stress_to_aggregate
         aggregated_neurons_stress.append(neurons_stress[:, :post_activation_size])
@@ -103,7 +103,7 @@ def update_layers_parameters(pre_activations_neurons, post_activations_neurons, 
         previous_activation = pre_activations_neurons[-(layer_idx+1)]
         loss = layers_losses[layer_idx]
         backprop_parameters_nudge = 0.001 * cp.dot(previous_activation.transpose(), loss)
-        oja_parameters_nudge = 0.0001 * (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
+        oja_parameters_nudge = 0.00001* (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
         axons -= (backprop_parameters_nudge / previous_activation.shape[0])
         # dentrites -= (learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0])
         axons += (oja_parameters_nudge / current_activation.shape[0])
@@ -143,7 +143,7 @@ def residual_test_layers(dataloader, layers_parameters, residual_idx):
     return cp.mean(cp.array(model_predictions)).item()
 
 def model(network_architecture, residual_idx_connections, training_loader, validation_loader, learning_rate, epochs):
-    network_parameters = residual_axons_and_dentrites_initialization(network_feature_sizes=network_architecture, layers_idx_with_residual_connection=residual_idx_connections)
+    network_parameters = residual_axons_and_dentrites_initialization(network_feature_sizes=network_architecture, step_back_sizes=residual_idx_connections)
     for epoch in range(epochs):
         print(f'EPOCH: {epoch+1}')
         model_stress = residual_training_layers(dataloader=training_loader, layers_parameters=network_parameters, residual_neurons_sizes=residual_idx_connections, learning_rate=learning_rate)
