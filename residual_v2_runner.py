@@ -15,9 +15,9 @@ def main():
     NUMBER_OF_CLASSES = 10
     INPUT_DATA_FEATURE_SIZE = IMAGE_HEIGHT*IMAGE_WIDTH
     INPUT_AND_OUTPUT_LAYERS = [INPUT_DATA_FEATURE_SIZE, NUMBER_OF_CLASSES]
-    MIDDLE_LAYERS = [100] * 150
+    MIDDLE_LAYERS = [512] * 15
     NETWORK_ARCHITECTURE = INPUT_AND_OUTPUT_LAYERS[:1] + MIDDLE_LAYERS + INPUT_AND_OUTPUT_LAYERS[1:]
-    residual_neurons_sizes = [(2**n) for n in range(NETWORK_ARCHITECTURE[1]) if (2**n) < NETWORK_ARCHITECTURE[1]]
+    residual_neurons_sizes = [(2**n) for n in range(NETWORK_ARCHITECTURE[1]) if (2**n) < len(MIDDLE_LAYERS)][1:]
     TRANSFORM = lambda x: torch.flatten(transforms.ToTensor()(x)).type(dtype=torch.float32)
     TARGET_TRANSFORM = lambda x: torch.tensor(one_hot(x, number_of_classes=NUMBER_OF_CLASSES), dtype=torch.float32)
     
