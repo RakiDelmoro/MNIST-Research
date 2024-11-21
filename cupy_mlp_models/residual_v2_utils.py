@@ -6,22 +6,28 @@ from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
-def apply_residual_neurons(activation_idx, last_layer_idx, neurons_activations, axons, dentrites, step_back_sizes):
-    input_neurons_for_next_layer = [neurons_activations[-1]]
-    for each_step_back in step_back_sizes:
-        step_back_not_allowed = activation_idx <= each_step_back
-        if step_back_not_allowed: break
+def apply_residual_neurons(layer_idx, last_layer_idx, neurons_activations, axons, dentrites):
+    input_neurons_for_next_layer = []
+    step_back_size = 0
+    while True:
+        if step_back_size < 1:
+            pulled_neurons_size = neurons_activations[-(step_back_size+1)].shape[-1] // (step_back_size+1)
+            pulled_neurons_activation = neurons_activations[-(step_back_size+1)][:, :pulled_neurons_size]
+            step_back_size += 1
         else:
-            residual_neurons_size = neurons_activations[1].shape[-1] // each_step_back
-            residual_neurons = neurons_activations[-(each_step_back+1)][:, :residual_neurons_size]
-            input_neurons_for_next_layer.append(residual_neurons)
-            step_back_sizes = [each for each in step_back_sizes if each != each_step_back]
+            each_step_back = 2**step_back_size
+            if layer_idx <= each_step_back: break
+            pulled_neurons_size = neurons_activations[-(each_step_back+1)].shape[-1] // each_step_back
+            pulled_neurons_activation = neurons_activations[-(each_step_back+1)][:, :pulled_neurons_size]
+            step_back_size += 1
+        input_neurons_for_next_layer.append(pulled_neurons_activation)
+    no_activation_function = layer_idx == last_layer_idx
     pre_neurons_activation = cp.concatenate(input_neurons_for_next_layer, axis=-1)
-    if activation_idx == last_layer_idx-1: return pre_neurons_activation, cp.dot(pre_neurons_activation, axons)
+    if no_activation_function: return pre_neurons_activation, cp.dot(pre_neurons_activation, axons)
     else: return pre_neurons_activation, relu(cp.dot(pre_neurons_activation, axons))
 
 def forward_pass_activations(neurons, layers_parameters, residual_sizes):
-    last_layer_idx = len(layers_parameters)
+    last_layer_idx = len(layers_parameters)-1
     pre_activation_neurons = cp.array(neurons)
     pre_neurons_activations = []
     post_neurons_activations = [pre_activation_neurons]
@@ -29,7 +35,7 @@ def forward_pass_activations(neurons, layers_parameters, residual_sizes):
     for layer_idx in range(total_activations):
         axons = layers_parameters[layer_idx][0]
         dentrites = layers_parameters[layer_idx][1]
-        pre_activation_neurons, post_activation_neurons = apply_residual_neurons(layer_idx, last_layer_idx, post_neurons_activations, axons, dentrites, residual_sizes)
+        pre_activation_neurons, post_activation_neurons = apply_residual_neurons(layer_idx, last_layer_idx, post_neurons_activations, axons, dentrites)
         pre_neurons_activations.append(pre_activation_neurons)
         post_neurons_activations.append(post_activation_neurons)
     return pre_neurons_activations, post_neurons_activations
