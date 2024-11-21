@@ -7,20 +7,16 @@ from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
 def apply_residual_neurons(layer_idx, last_layer_idx, neurons_activations, axons, dentrites):
-    input_neurons_for_next_layer = []
-    step_back_size = 0
+    step_magnitude = 1
+    step_back_size = 2**step_magnitude
+    input_neurons_for_next_layer = [neurons_activations[-1]]
     while True:
-        if step_back_size < 1:
-            pulled_neurons_size = neurons_activations[-(step_back_size+1)].shape[-1] // (step_back_size+1)
-            pulled_neurons_activation = neurons_activations[-(step_back_size+1)][:, :pulled_neurons_size]
-            step_back_size += 1
-        else:
-            each_step_back = 2**step_back_size
-            if layer_idx <= each_step_back: break
-            pulled_neurons_size = neurons_activations[-(each_step_back+1)].shape[-1] // each_step_back
-            pulled_neurons_activation = neurons_activations[-(each_step_back+1)][:, :pulled_neurons_size]
-            step_back_size += 1
+        if layer_idx <= step_back_size: break
+        step_magnitude += 1
+        pulled_neurons_size = neurons_activations[-(step_back_size+1)].shape[-1] // step_back_size
+        pulled_neurons_activation = neurons_activations[-(step_back_size+1)][:, :pulled_neurons_size]
         input_neurons_for_next_layer.append(pulled_neurons_activation)
+        step_back_size = 2**step_magnitude
     no_activation_function = layer_idx == last_layer_idx
     pre_neurons_activation = cp.concatenate(input_neurons_for_next_layer, axis=-1)
     if no_activation_function: return pre_neurons_activation, cp.dot(pre_neurons_activation, axons)
