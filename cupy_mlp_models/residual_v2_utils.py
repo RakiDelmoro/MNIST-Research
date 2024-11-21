@@ -43,6 +43,7 @@ def forward_pass_activations(neurons, layers_parameters):
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
     reconstructed_previous_activation = cp.dot(activation, axons.transpose())
+    reconstructed_previous_activation = relu(reconstructed_previous_activation)
     reconstructed_activation = cp.dot(reconstructed_previous_activation, axons)
     neurons_reconstructed_error = activation - reconstructed_activation
     # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
@@ -65,7 +66,7 @@ def apply_residual_neurons_stress(layer_loss_idx, layer_stress, layers_losses, a
             pulled_neurons_stress = cp.full_like(neurons_stress_to_aggregate[0], 0)
             pulled_neurons_stress[:, :neurons_stress_size] = residual_neurons_stress
             step_back_size += 1
-        neurons_stress = (cp.dot(pulled_neurons_stress, axons.transpose()) * (relu(pre_acitvation_neurons, True)))[:, :256]
+        neurons_stress = (cp.dot(pulled_neurons_stress, axons.transpose()) * (relu(pre_acitvation_neurons, True)))[:, :512]
         neurons_stress_to_aggregate.append(neurons_stress)
     neurons_stress_for_next_layer = neurons_stress_to_aggregate[0]
     aggregated_stress = cp.sum(cp.array(neurons_stress_to_aggregate), axis=0)
@@ -87,6 +88,11 @@ def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_
         activation_reconstructed_stress.append(reconstructed_activation_avg_stress)
     return layers_stress, cp.mean(cp.array(activation_reconstructed_stress))
 
+def oja_update_rule(previous_activation, current_activation, axons):
+    rule_1 = cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose()
+    rule_2 = cp.dot(previous_activation.transpose(), current_activation)
+    return rule_2 - rule_1
+
 def update_layers_parameters(pre_activations_neurons, post_activations_neurons, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_losses)
     for layer_idx in range(total_parameters):
@@ -96,8 +102,8 @@ def update_layers_parameters(pre_activations_neurons, post_activations_neurons, 
         previous_activation = pre_activations_neurons[-(layer_idx+1)]
         loss = layers_losses[layer_idx]
         backprop_parameters_nudge = 0.001 * cp.dot(previous_activation.transpose(), loss)
-        oja_parameters_nudge = 0.000001* (cp.dot(previous_activation.transpose(), current_activation) - cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose())
-        axons -= (backprop_parameters_nudge / previous_activation.shape[0])
+        oja_parameters_nudge = 0.01 * oja_update_rule(previous_activation, current_activation, axons) 
+        axons -= (backprop_parameters_nudge  / current_activation.shape[0])
         # dentrites -= (learning_rate * cp.sum(loss, axis=0) / current_activation.shape[0])
         axons += (oja_parameters_nudge / current_activation.shape[0])
 
