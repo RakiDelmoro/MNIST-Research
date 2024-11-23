@@ -2,7 +2,7 @@ import random
 import cupy as cp
 from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
-from nn_utils.activation_functions import relu
+from nn_utils.activation_functions import relu, tanh
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
@@ -20,7 +20,7 @@ def apply_residual_neurons(layer_idx, last_layer_idx, neurons_activations, axons
     no_activation_function = layer_idx == last_layer_idx
     pre_neurons_activation = cp.concatenate(input_neurons_for_next_layer, axis=-1)
     if no_activation_function: return pre_neurons_activation, cp.dot(pre_neurons_activation, axons)
-    else: return pre_neurons_activation, relu(cp.dot(pre_neurons_activation, axons))
+    else: return pre_neurons_activation, tanh(cp.dot(pre_neurons_activation, axons))
 
 def forward_pass_activations(neurons, layers_parameters):
     last_layer_idx = len(layers_parameters)-1
@@ -38,7 +38,7 @@ def forward_pass_activations(neurons, layers_parameters):
 
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_previous_activation = relu(cp.dot(activation, axons.transpose()))
+    reconstructed_previous_activation = tanh(cp.dot(activation, axons.transpose()))
     # reconstructed_previous_activation = reconstructed_previous_activation
     reconstructed_activation = cp.dot(reconstructed_previous_activation, axons)
     neurons_reconstructed_error = activation - reconstructed_activation
@@ -49,7 +49,7 @@ def reconstructed_activation_error(activation, axons):
 def apply_residual_neurons_stress(layer_loss_idx, layer_stress, layers_losses, axons, pre_acitvation_neurons, post_activation_neurons_size):
     step_magnitude = 1
     step_back_size = 2**step_magnitude
-    layer_stress = (cp.dot(layer_stress, axons.transpose()) * relu(pre_acitvation_neurons, return_derivative=True))[:, :512]
+    layer_stress = (cp.dot(layer_stress, axons.transpose()) * tanh(pre_acitvation_neurons, return_derivative=True))[:, :512]
     neurons_stress_to_aggregate = [layer_stress]
     while True:
         if layer_loss_idx <= step_back_size: break
@@ -80,7 +80,7 @@ def calculate_residual_layers_stress(last_layer_neurons_stress, pre_activations_
         activation_reconstructed_stress.append(reconstructed_activation_avg_stress)
     return layers_stress, cp.mean(cp.array(activation_reconstructed_stress))
 
-def oja_rule_update(previous_activation, current_activation, axons, learning_rate=0.0001):
+def oja_rule_update(previous_activation, current_activation, axons, learning_rate=0.001):
     rule_1 = cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose()
     rule_2 = cp.dot(previous_activation.transpose(), current_activation)
     return (learning_rate * (rule_2 - rule_1)) / current_activation.shape[0]
@@ -110,6 +110,8 @@ def residual_training_layers(dataloader, layers_parameters, residual_neurons_siz
         update_layers_parameters(pre_activations_neurons, post_activations_neurons, layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress} Reconstructed activation error: {activation_reconstructed_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
+        if i == 1000:
+            break
     return cp.mean(cp.array(per_batch_stress))
 
 def residual_test_layers(dataloader, layers_parameters, residual_idx):
