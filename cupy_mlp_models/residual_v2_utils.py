@@ -2,7 +2,7 @@ import random
 import cupy as cp
 from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
-from nn_utils.activation_functions import relu, tanh
+from nn_utils.activation_functions import tanh
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import residual_axons_and_dentrites_initialization
 
@@ -49,7 +49,7 @@ def reconstructed_activation_error(activation, axons):
 def apply_residual_neurons_stress(layer_loss_idx, layer_stress, layers_losses, axons, pre_acitvation_neurons, post_activation_neurons_size):
     step_magnitude = 1
     step_back_size = 2**step_magnitude
-    layer_stress = (cp.dot(layer_stress, axons.transpose()) * tanh(pre_acitvation_neurons, return_derivative=True))[:, :512]
+    layer_stress = (cp.dot(layer_stress, axons.transpose()) * tanh(pre_acitvation_neurons, return_derivative=True))[:, :256]
     neurons_stress_to_aggregate = [layer_stress]
     while True:
         if layer_loss_idx <= step_back_size: break
@@ -58,7 +58,7 @@ def apply_residual_neurons_stress(layer_loss_idx, layer_stress, layers_losses, a
         residual_neurons_stress = layers_losses[-(step_back_size+1)][:, :neurons_stress_size]
         pulled_neurons_stress = cp.full_like(neurons_stress_to_aggregate[0], 0)
         pulled_neurons_stress[:, :neurons_stress_size] = residual_neurons_stress
-        neurons_stress = (cp.dot(pulled_neurons_stress, axons.transpose()) * relu(pre_acitvation_neurons, True))[:, :512]
+        neurons_stress = (cp.dot(pulled_neurons_stress, axons.transpose()) * tanh(pre_acitvation_neurons, True))[:, :256]
         neurons_stress_to_aggregate.append(neurons_stress)
         step_back_size = 2**step_magnitude
     aggregated_stress = cp.sum(cp.array(neurons_stress_to_aggregate), axis=0)
