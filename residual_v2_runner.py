@@ -25,6 +25,6 @@ def main():
     validation_dataset = datasets.MNIST('./training-data', download=True, train=False, transform=TRANSFORM, target_transform=TARGET_TRANSFORM)
     training_dataloader = DataLoader(training_dataset, batch_size=BATCH_SIZE, shuffle=True)
     validation_dataloader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    model(network_architecture=NETWORK_ARCHITECTURE, residual_idx_connections=residual_neurons_sizes, training_loader=training_dataloader, validation_loader=validation_dataloader, learning_rate=LEARNING_RATE, epochs=EPOCHS)
+    model(network_architecture=NETWORK_ARCHITECTURE, residual_idx_connections=residual_neurons_sizes, training_loader=digit_generator(), validation_loader=validation_dataloader, learning_rate=LEARNING_RATE, epochs=EPOCHS)
 
 main()
