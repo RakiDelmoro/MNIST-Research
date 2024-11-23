@@ -2,23 +2,27 @@ import random
 import cupy as cp
 from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
-from nn_utils.activation_functions import relu, sigmoid
+from nn_utils.activation_functions import tanh
 from nn_utils.loss_functions import cross_entropy_loss
 from cupy_utils.utils import axons_and_dentrites_initialization
 
 def forward_pass_activations(input_feature, layers_parameters):
+    last_layer_idx = len(layers_parameters)-1
     neurons_activation = cp.array(input_feature)
     total_activations = len(layers_parameters)
     neurons_activations = [neurons_activation]
     for layer_idx in range(total_activations):
         axons = layers_parameters[layer_idx][0]
-        neurons_activation = cp.dot(neurons_activation, axons)
+        if layer_idx == last_layer_idx:
+            neurons_activation = cp.dot(neurons_activation, axons)
+        else:
+            neurons_activation = tanh(cp.dot(neurons_activation, axons))
         neurons_activations.append(neurons_activation)
     return neurons_activations
 
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_previous_activation = cp.dot(activation, axons.transpose())
+    reconstructed_previous_activation = tanh(cp.dot(activation, axons.transpose()))
     reconstructed_activation = cp.dot(reconstructed_previous_activation, axons)
     neurons_reconstructed_error = activation - reconstructed_activation
     # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
@@ -35,12 +39,12 @@ def calculate_layers_stress(neurons_stress, layers_activations, layers_parameter
         previous_activation = layers_activations[-(each_layer+2)]
         avg_error = reconstructed_activation_error(activation, axons)
         layer_gradient = neurons_stress 
-        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) 
+        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * (tanh(previous_activation, True))
         layers_gradient.append(layer_gradient)
         reconstructed_errors.append(avg_error)
     return layers_gradient, cp.mean(cp.array(reconstructed_errors))
 
-def oja_rule_update(previous_activation, current_activation, axons, learning_rate=0.01):
+def oja_rule_update(previous_activation, current_activation, axons, learning_rate=0.001):
     rule_1 = cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose()
     rule_2 = cp.dot(previous_activation.transpose(), current_activation)
     return (learning_rate * (rule_2 - rule_1)) / current_activation.shape[0]
