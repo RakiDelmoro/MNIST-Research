@@ -37,7 +37,7 @@ def axons_and_dentrites_initialization(input_feature, output_feature):
     fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(weights)
     bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
     torch.nn.init.uniform_(bias, -bound, bound)
-    weights = cp.random.normal(loc=0, scale=0.01, size=(input_feature, output_feature))
+    # weights = cp.random.normal(loc=0, scale=0.01, size=(input_feature, output_feature))
     return [cupy_array(weights), cupy_array(bias)]
 
 def axons_initialization(input_feature, output_feature):
