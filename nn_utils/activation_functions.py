@@ -14,9 +14,18 @@ def relu(input_data, return_derivative=False):
 
 def sigmoid(input_data, return_derivative=False):
     if return_derivative:
+       input_data = 1.0 / (1.0+cp.exp(-input_data))
        return input_data * (1 - input_data)
     else:
         return 1.0 / (1.0+cp.exp(-input_data))
+
+def tanh(input_data, return_derivative=False):
+    if return_derivative:
+        input_data = (cp.exp(input_data) - cp.exp(-input_data))/(cp.exp(input_data) + cp.exp(-input_data))
+        return 1 - input_data * input_data
+    else:
+        return (cp.exp(input_data) - cp.exp(-input_data))/(cp.exp(input_data) + cp.exp(-input_data))
+
 
 def softmax(input_data):
     # Subtract max value for numerical stability
