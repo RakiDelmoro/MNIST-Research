@@ -29,4 +29,4 @@ def activation_visualizer(activation_function: str):
     plt.grid()
     plt.savefig('activation.png')
 
-activation_visualizer('tanh')
+activation_visualizer('sigmoid')
