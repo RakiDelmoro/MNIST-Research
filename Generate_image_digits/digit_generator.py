@@ -16,6 +16,6 @@ def digit_to_image(str_digit):
     draw_digit.text((28/2, 28/2), str_digit, anchor="mm", fill=digit_color, font=font)
     image_cupy_array = cp.asarray(image)
     image_gray = cv.cvtColor(cp.asnumpy(image_cupy_array), cv.COLOR_RGB2GRAY)
-    image_arr_normalized = cv.normalize(image_gray, None, 0, 1, cv.NORM_MINMAX, cv.CV_32F)
+    image_arr_normalized = cv.normalize(image_gray, None, -1, 1, cv.NORM_MINMAX, cv.CV_32F)
     return image, image_arr_normalized.reshape(1, -1)
  
