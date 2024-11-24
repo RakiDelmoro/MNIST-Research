@@ -49,17 +49,17 @@ def reconstructed_activation_error(activation, axons):
 def apply_residual_neurons_stress(layer_loss_idx, layer_stress, layers_losses, axons, pre_acitvation_neurons, post_activation_neurons_size):
     step_magnitude = 1
     step_back_size = 2**step_magnitude
-    layer_stress = (cp.dot(layer_stress, axons.transpose()) * tanh(pre_acitvation_neurons, return_derivative=True))[:, :256]
+    layer_stress = (cp.dot(layer_stress, axons.transpose()) * tanh(pre_acitvation_neurons, return_derivative=True))[:, :512]
     neurons_stress_to_aggregate = [layer_stress]
     while True:
         if layer_loss_idx <= step_back_size: break
-        step_magnitude += 1
         neurons_stress_size = post_activation_neurons_size // step_back_size
         residual_neurons_stress = layers_losses[-(step_back_size+1)][:, :neurons_stress_size]
         pulled_neurons_stress = cp.full_like(neurons_stress_to_aggregate[0], 0)
         pulled_neurons_stress[:, :neurons_stress_size] = residual_neurons_stress
-        neurons_stress = (cp.dot(pulled_neurons_stress, axons.transpose()) * tanh(pre_acitvation_neurons, True))[:, :256]
+        neurons_stress = (cp.dot(pulled_neurons_stress, axons.transpose()) * tanh(pre_acitvation_neurons, True))[:, :512]
         neurons_stress_to_aggregate.append(neurons_stress)
+        step_magnitude += 1
         step_back_size = 2**step_magnitude
     aggregated_stress = cp.sum(cp.array(neurons_stress_to_aggregate), axis=0)
     if len(neurons_stress_to_aggregate) > 1: return layer_stress, aggregated_stress
