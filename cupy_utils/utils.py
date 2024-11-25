@@ -9,26 +9,6 @@ def cupy_array(x):
 def one_hot(x, number_of_classes):
     return cupy_array(cp.eye(number_of_classes)[x])
 
-def resiudal_connections_initialization(network_feature_sizes):
-    network_connections = []
-    step_magnitude = 1
-    step_back_size = 2**step_magnitude
-    residual_neurons_size = 0
-    for layer_idx in range(len(network_feature_sizes)-1):
-        have_residual_neurons = layer_idx > step_back_size
-        if have_residual_neurons:
-            residual_neurons_size += (network_feature_sizes[layer_idx] // step_back_size)
-            input_neurons_size = network_feature_sizes[layer_idx] + residual_neurons_size
-            output_neurons_size = network_feature_sizes[layer_idx+1]
-            step_magnitude += 1
-            step_back_size = 2**step_magnitude
-        else:
-            input_neurons_size = network_feature_sizes[layer_idx] + residual_neurons_size
-            output_neurons_size = network_feature_sizes[layer_idx+1]
-        axons, _ = axons_and_dentrites_initialization(input_neurons_size, output_neurons_size)
-        network_connections.append(axons)
-    return network_connections
-
 def axons_and_dentrites_initialization(input_feature, output_feature):
     weights = torch.empty((input_feature, output_feature))
     bias = torch.empty(output_feature)
@@ -49,4 +29,24 @@ def dentrites_initialization(output_feature):
     bound_b = 1 / cp.sqrt(output_feature) if output_feature > 0 else 0
     bias = cp.random.uniform(-bound_b, bound_b, size=(output_feature,), dtype=cp.float32)
     # bias = cp.zeros(output_feature)
-    return bias
+    return 
+
+def resiudal_connections_initialization(network_feature_sizes):
+    network_connections = []
+    step_magnitude = 1
+    step_back_size = 2**step_magnitude
+    residual_neurons_size = 0
+    for layer_idx in range(len(network_feature_sizes)-1):
+        have_residual_neurons = layer_idx > step_back_size
+        if have_residual_neurons:
+            residual_neurons_size += (network_feature_sizes[layer_idx] // step_back_size)
+            input_neurons_size = network_feature_sizes[layer_idx] + residual_neurons_size
+            output_neurons_size = network_feature_sizes[layer_idx+1]
+            step_magnitude += 1
+            step_back_size = 2**step_magnitude
+        else:
+            input_neurons_size = network_feature_sizes[layer_idx] + residual_neurons_size
+            output_neurons_size = network_feature_sizes[layer_idx+1]
+        axons, _ = axons_and_dentrites_initialization(input_neurons_size, output_neurons_size)
+        network_connections.append(axons)
+    return network_connections
