@@ -4,7 +4,7 @@ from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import tanh
 from nn_utils.loss_functions import cross_entropy_loss
-from cupy_utils.utils import axons_and_dentrites_initialization
+from cupy_utils.utils import axons_initialization, count_parameters
 
 def forward_pass_activations(input_feature, layers_parameters):
     last_layer_idx = len(layers_parameters)-1
@@ -12,7 +12,7 @@ def forward_pass_activations(input_feature, layers_parameters):
     total_activations = len(layers_parameters)
     neurons_activations = [neurons_activation]
     for layer_idx in range(total_activations):
-        axons = layers_parameters[layer_idx][0]
+        axons = layers_parameters[layer_idx]
         if layer_idx == last_layer_idx:
             neurons_activation = cp.dot(neurons_activation, axons)
         else:
@@ -34,7 +34,7 @@ def calculate_layers_stress(neurons_stress, layers_activations, layers_parameter
     layers_gradient = []
     total_layers_stress = len(layers_activations)-1
     for each_layer in range(total_layers_stress):
-        axons = layers_parameters[-(each_layer+1)][0]
+        axons = layers_parameters[-(each_layer+1)]
         activation = layers_activations[-(each_layer+1)]
         previous_activation = layers_activations[-(each_layer+2)]
         avg_error = reconstructed_activation_error(activation, axons)
@@ -55,7 +55,7 @@ def backpropagation_rule_update(previous_activation, loss, learning_rate):
 def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_losses)
     for layer_idx in range(total_parameters):
-        axons = layers_parameters[-(layer_idx+1)][0]
+        axons = layers_parameters[-(layer_idx+1)]
         current_activation = neurons_activations[-(layer_idx+1)]
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
@@ -75,8 +75,6 @@ def training_layers(dataloader, layers_parameters, learning_rate):
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress} Reconstruct activation error: {reconstructed_error_avg}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
         per_batch_reconstructed_error.append(reconstructed_error_avg)
-        # if i == 1000:
-            # break
     return cp.mean(cp.array(per_batch_stress)), cp.mean(cp.array(per_batch_reconstructed_error))
 
 def test_layers(dataloader, layers_parameters):
@@ -103,11 +101,11 @@ def test_layers(dataloader, layers_parameters):
     return cp.mean(cp.array(model_predictions)).item()
 
 def model(network_architecture, training_loader, validation_loader, learning_rate, epochs):
-    network_parameters = [axons_and_dentrites_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
-    training_size = 1000
-    for epoch in range(epochs):
-        print(f'EPOCH: {epoch+1}')
-        model_stress, recontructed_stress = training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
-        model_accuracy = test_layers(dataloader=validation_loader, layers_parameters=network_parameters)
-        # print(f'accuracy: {model_accuracy}')
-        print(f'Average loss per epoch: {model_stress} recontructed error: {recontructed_stress} accuracy: {model_accuracy}')
+    network_parameters = [axons_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
+    print(count_parameters(network_parameters))
+    # for epoch in range(epochs):
+    #     print(f'EPOCH: {epoch+1}')
+    #     model_stress, recontructed_stress = training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
+    #     model_accuracy = test_layers(dataloader=validation_loader, layers_parameters=network_parameters)
+    #     # print(f'accuracy: {model_accuracy}')
+    #     print(f'Average loss per epoch: {model_stress} recontructed error: {recontructed_stress} accuracy: {model_accuracy}')
