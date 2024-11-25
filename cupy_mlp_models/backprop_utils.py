@@ -4,7 +4,7 @@ from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
-from cupy_utils.utils import axons_and_dentrites_initialization
+from cupy_utils.utils import axons_initialization
 
 def forward_pass_activations(input_feature, layers_parameters):
     neurons = cp.array(input_feature)
@@ -79,7 +79,7 @@ def test_layers(dataloader, layers_parameters):
     return cp.mean(cp.array(model_predictions)).item()
 
 def model(network_architecture, training_loader, validation_loader, learning_rate, epochs):
-    network_parameters = [axons_and_dentrites_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
+    network_parameters = [axons_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
     for epoch in range(epochs):
         print(f'EPOCH: {epoch+1}')
         model_stress = training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
