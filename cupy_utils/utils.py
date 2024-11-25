@@ -50,3 +50,7 @@ def resiudal_connections_initialization(network_feature_sizes):
         axons, _ = axons_and_dentrites_initialization(input_neurons_size, output_neurons_size)
         network_connections.append(axons)
     return network_connections
+
+def count_parameters(network_connections):
+    return sum([param.shape[0]*param.shape[1] for param in network_connections])
+
