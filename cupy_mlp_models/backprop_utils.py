@@ -4,7 +4,7 @@ from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import relu
 from nn_utils.loss_functions import cross_entropy_loss
-from cupy_utils.utils import axons_initialization
+from cupy_utils.utils import backpropagation_parameters_initialization
 
 def forward_pass_activations(input_feature, layers_parameters):
     neurons = cp.array(input_feature)
@@ -14,9 +14,9 @@ def forward_pass_activations(input_feature, layers_parameters):
         axons = layers_parameters[layer_idx][0]
         dentrites = layers_parameters[layer_idx][1]
         if layer_idx != total_activations-1:
-            neurons = relu((cp.dot(neurons, axons)) + dentrites) 
+            neurons = relu((cp.matmul(neurons, axons)) + dentrites) 
         else:
-            neurons = (cp.dot(neurons, axons) + dentrites)
+            neurons = (cp.matmul(neurons, axons) + dentrites)
         neurons_activations.append(neurons)
     return neurons_activations
 
@@ -26,7 +26,7 @@ def calculate_layers_stress(neurons_stress, neurons_activations, layers_paramete
     for each_layer in range(total_layers_stress):
         activation = neurons_activations[-(each_layer+2)]
         axons = layers_parameters[-(each_layer+1)][0]
-        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * (relu(input_data=activation, return_derivative=True))
+        neurons_stress = (cp.matmul(neurons_stress, axons.transpose())) * (relu(input_data=activation, return_derivative=True))
         layers_gradient.append(neurons_stress)
     return layers_gradient
 
@@ -38,7 +38,7 @@ def update_layers_parameters(neurons_activations, layers_losses, layers_paramete
         current_activation = neurons_activations[-(layer_idx+1)]
         previous_activation = neurons_activations[-(layer_idx+2)]
         loss = layers_losses[layer_idx]
-        backprop_parameters_nudge = learning_rate * cp.dot(previous_activation.transpose(), loss)
+        backprop_parameters_nudge = learning_rate * cp.matmul(previous_activation.transpose(), loss)
         axons -= (backprop_parameters_nudge / current_activation.shape[0])
         dentrites -= ((learning_rate * cp.sum(loss, axis=0)) / current_activation.shape[0])
 
@@ -51,8 +51,6 @@ def training_layers(dataloader, layers_parameters, learning_rate):
         update_layers_parameters(neurons_activations, layers_stress, layers_parameters, learning_rate)
         print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
         per_batch_stress.append(avg_last_neurons_stress)
-        if i == 1000:
-            break
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters):
@@ -79,7 +77,7 @@ def test_layers(dataloader, layers_parameters):
     return cp.mean(cp.array(model_predictions)).item()
 
 def model(network_architecture, training_loader, validation_loader, learning_rate, epochs):
-    network_parameters = [axons_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
+    network_parameters = [backpropagation_parameters_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
     for epoch in range(epochs):
         print(f'EPOCH: {epoch+1}')
         model_stress = training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
