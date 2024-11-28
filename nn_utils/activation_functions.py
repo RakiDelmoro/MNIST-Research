@@ -26,13 +26,16 @@ def tanh(input_data, return_derivative=False):
     else:
         return (cp.exp(input_data) - cp.exp(-input_data))/(cp.exp(input_data) + cp.exp(-input_data))
 
-
-def softmax(input_data):
+def softmax(input_data, return_derivative=False):
     # Subtract max value for numerical stability
     shifted_data = input_data - cp.max(input_data, axis=-1, keepdims=True)
     # Calculate exp
     exp_data = cp.exp(shifted_data)
     # Sum along axis=1 and keep dimensions for broadcasting
     sum_exp_data = cp.sum(exp_data, axis=-1, keepdims=True)
-
-    return exp_data / sum_exp_data
+    if return_derivative:
+        softmax_output = exp_data / sum_exp_data
+        jacobian = softmax_output * (cp.eye(softmax_output.shape[-1]) - softmax_output)
+        return jacobian
+    else:
+        return exp_data / sum_exp_data
