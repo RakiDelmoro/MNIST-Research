@@ -1,7 +1,7 @@
 import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
-from nn_utils.activation_functions import relu, leaky_relu, sigmoid, tanh
+from nn_utils.activation_functions import relu, leaky_relu, sigmoid, tanh, softmax
 
 RED = '\033[31m'
 RESET = '\033[0m'
@@ -21,6 +21,10 @@ def activation_visualizer(activation_function: str):
     elif activation_function == 'tanh':
         y_data = cp.asnumpy(tanh(cp.array(x_data)))
         derivative_data = cp.asnumpy(tanh(cp.array(x_data), return_derivative=True))
+    elif activation_function == 'softmax':
+        y_data = cp.asnumpy(softmax(cp.array(x_data)))
+        derivative_data = cp.asnumpy(softmax(cp.array(x_data), return_derivative=True))
+        
 
     # Draw graph
     plt.plot(x_data, y_data, x_data, derivative_data)
@@ -29,4 +33,5 @@ def activation_visualizer(activation_function: str):
     plt.grid()
     plt.savefig('activation.png')
 
-activation_visualizer('sigmoid')
+activation_visualizer('softmax')
+
