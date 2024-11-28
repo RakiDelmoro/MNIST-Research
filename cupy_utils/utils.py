@@ -16,6 +16,15 @@ def axons_initialization(input_feature, output_feature):
     # weights = cp.random.normal(loc=0, scale=0.01, size=(input_feature, output_feature))
     return cupy_array(weights)
 
+def backpropagation_parameters_initialization(input_feature, output_feature):
+    weights = torch.empty((input_feature, output_feature))
+    bias = torch.empty(output_feature)
+    torch.nn.init.kaiming_normal_(weights, a=math.sqrt(5))
+    fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(weights)
+    bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
+    torch.nn.init.uniform_(bias, -bound, bound)
+    return cupy_array(weights), cupy_array(bias)
+
 def resiudal_connections_initialization(network_feature_sizes):
     network_connections = []
     step_magnitude = 1
