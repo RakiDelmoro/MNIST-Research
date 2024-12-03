@@ -14,16 +14,16 @@ def forward_pass_activations(input_feature, layers_parameters):
     for layer_idx in range(total_activations):
         axons = layers_parameters[layer_idx]
         if layer_idx == last_layer_idx:
-            neurons_activation = cp.dot(neurons_activation, axons)
+            neurons_activation = cp.matmul(neurons_activation, axons)
         else:
-            neurons_activation = tanh(cp.dot(neurons_activation, axons))
+            neurons_activation = tanh(cp.matmul(neurons_activation, axons))
         neurons_activations.append(neurons_activation)
     return neurons_activations
 
 def reconstructed_activation_error(activation, axons):
     # 𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i)
-    reconstructed_previous_activation = tanh(cp.dot(activation, axons.transpose()))
-    reconstructed_activation = cp.dot(reconstructed_previous_activation, axons)
+    reconstructed_previous_activation = tanh(cp.matmul(activation, axons.transpose()))
+    reconstructed_activation = cp.matmul(reconstructed_previous_activation, axons)
     neurons_reconstructed_error = activation - reconstructed_activation
     # 𝒥=1T⁢∑i=1T‖𝐲ℓ−1(i)−𝑾ℓ−1,ℓT⁢σ⁢(𝑾ℓ−1,ℓ⁢𝐲ℓ−1(i))‖2
     avg_reconstructed_error = cp.sum(cp.linalg.norm(neurons_reconstructed_error)**2) / activation.shape[0]
@@ -39,18 +39,18 @@ def calculate_layers_stress(neurons_stress, layers_activations, layers_parameter
         previous_activation = layers_activations[-(each_layer+2)]
         avg_error = reconstructed_activation_error(activation, axons)
         layer_gradient = neurons_stress 
-        neurons_stress = (cp.dot(neurons_stress, axons.transpose())) * (tanh(previous_activation, True))
+        neurons_stress = (cp.matmul(neurons_stress, axons.transpose())) * (tanh(previous_activation, True))
         layers_gradient.append(layer_gradient)
         reconstructed_errors.append(avg_error)
     return layers_gradient, cp.mean(cp.array(reconstructed_errors))
 
 def oja_rule_update(previous_activation, current_activation, axons, learning_rate=0.001):
-    rule_1 = cp.dot(cp.dot(current_activation.transpose(), current_activation), axons.transpose()).transpose()
-    rule_2 = cp.dot(previous_activation.transpose(), current_activation)
+    rule_1 = cp.matmul(cp.matmul(current_activation.transpose(), current_activation), axons.transpose()).transpose()
+    rule_2 = cp.matmul(previous_activation.transpose(), current_activation)
     return (learning_rate * (rule_2 - rule_1)) / current_activation.shape[0]
 
 def backpropagation_rule_update(previous_activation, loss, learning_rate):
-    return (learning_rate * cp.dot(previous_activation.transpose(), loss)) / previous_activation.shape[0]
+    return (learning_rate * cp.matmul(previous_activation.transpose(), loss)) / previous_activation.shape[0]
 
 def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
     total_parameters = len(layers_losses)
