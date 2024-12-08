@@ -1,7 +1,7 @@
 import cupy as cp
 
 axon = cp.array([[1, 0], [1, 0]])
-y1 = cp.array([[1, 0]]) 
+y1 = cp.array([[1, -1]]) 
 y2 = cp.dot(y1, axon) # [[1, 0]]
 y1_transposed = y1.transpose()  # [[1]
                                 #  [0]]
