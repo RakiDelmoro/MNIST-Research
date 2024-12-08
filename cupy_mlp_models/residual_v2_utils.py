@@ -4,7 +4,7 @@ from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
 from nn_utils.activation_functions import tanh
 from nn_utils.loss_functions import cross_entropy_loss
-from cupy_utils.utils import resiudal_connections_initialization
+from cupy_utils.utils import resiudal_connections_initialization, count_parameters
 
 def apply_residual_neurons(layer_idx, last_layer_idx, neurons_activations, axons):
     step_magnitude = 1
@@ -137,11 +137,10 @@ def residual_test_layers(dataloader, layers_parameters):
 
 def model(network_architecture, training_loader, validation_loader, learning_rate, epochs):
     network_parameters = resiudal_connections_initialization(network_architecture)
+    # print(count_parameters(network_parameters))
     for epoch in range(epochs):
         print(f'EPOCH: {epoch+1}')
         model_stress = residual_training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
         model_accuracy = residual_test_layers(dataloader=validation_loader, layers_parameters=network_parameters)
         # print(f'accuracy: {model_accuracy}')
         print(f'Average loss per epoch: {model_stress} accuracy: {model_accuracy}')
-
-
