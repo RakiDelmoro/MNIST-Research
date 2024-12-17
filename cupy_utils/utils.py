@@ -16,6 +16,10 @@ def axons_initialization(input_feature, output_feature):
     # weights = cp.random.normal(loc=0, scale=0.01, size=(input_feature, output_feature))
     return cupy_array(weights)
 
+def cupy_axons_initialization(input_feature, output_feature):
+    """Copied from Geogre Hotz :)"""
+    return cp.random.uniform(-1., 1., size=(input_feature*output_feature)/cp.sqrt(input_feature*output_feature))
+
 def backpropagation_parameters_initialization(input_feature, output_feature):
     weights = torch.empty((input_feature, output_feature))
     bias = torch.empty(output_feature)
