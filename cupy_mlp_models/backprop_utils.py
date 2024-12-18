@@ -2,55 +2,51 @@ import random
 import cupy as cp
 from features import GREEN, RED, RESET
 from cupy_utils.utils import cupy_array
-from nn_utils.activation_functions import relu
+from nn_utils.activation_functions import relu, softmax, log_softmax
 from nn_utils.loss_functions import cross_entropy_loss
-from cupy_utils.utils import backpropagation_parameters_initialization
+from cupy_utils.utils import cupy_axon_and_dentrites_init
 
-def forward_pass_activations(input_feature, layers_parameters):
-    neurons = cp.array(input_feature)
-    total_activations = len(layers_parameters)
-    neurons_activations = [neurons]
-    for layer_idx in range(total_activations):
-        axons = layers_parameters[layer_idx][0]
-        dentrites = layers_parameters[layer_idx][1]
-        if layer_idx != total_activations-1:
-            neurons = relu((cp.matmul(neurons, axons)) + dentrites) 
-        else:
-            neurons = (cp.matmul(neurons, axons) + dentrites)
-        neurons_activations.append(neurons)
-    return neurons_activations
+def forward_pass_activations(input_neurons, layers_parameters):
+    first_layer_output = cp.matmul(cp.array(input_neurons), layers_parameters[0][0])
+    first_layer_activated = relu(first_layer_output)
+    second_layer_output = cp.matmul(first_layer_activated, layers_parameters[-1][0])
+    model_output = log_softmax(second_layer_output)
+    return input_neurons, first_layer_output, first_layer_activated, second_layer_output, model_output
 
-def calculate_layers_stress(neurons_stress, neurons_activations, layers_parameters):
-    layers_gradient = [neurons_stress]
-    total_layers_stress = len(layers_parameters)-1
-    for each_layer in range(total_layers_stress):
-        activation = neurons_activations[-(each_layer+2)]
-        axons = layers_parameters[-(each_layer+1)][0]
-        neurons_stress = (cp.matmul(neurons_stress, axons.transpose())) * (relu(input_data=activation, return_derivative=True))
-        layers_gradient.append(neurons_stress)
-    return layers_gradient
+def network_loss_function(network_output, expected_output):
+    # Compute probability distribution of model output
+    correct_index_mask = cp.zeros(network_output.shape)
+    correct_index_mask[cp.arange(network_output.shape[0]), cp.array(expected_output)] = 1.0
+    mean_loss = (-correct_index_mask * network_output).mean(axis=1)
+    network_output_stress = -correct_index_mask/network_output.shape[0]
+    # LogSoftmax derivative
+    stress_propagate_back_to_network = network_output_stress - cp.exp(network_output)*network_output_stress.sum(axis=1).reshape(-1, 1)
+    return mean_loss, stress_propagate_back_to_network
 
-def update_layers_parameters(neurons_activations, layers_losses, layers_parameters, learning_rate):
-    total_parameters = len(layers_losses)
-    for layer_idx in range(total_parameters):
-        axons = layers_parameters[-(layer_idx+1)][0]
-        dentrites = layers_parameters[-(layer_idx+1)][1]
-        current_activation = neurons_activations[-(layer_idx+1)]
-        previous_activation = neurons_activations[-(layer_idx+2)]
-        loss = layers_losses[layer_idx]
-        backprop_parameters_nudge = learning_rate * cp.matmul(previous_activation.transpose(), loss)
-        axons -= (backprop_parameters_nudge / current_activation.shape[0])
-        dentrites -= ((learning_rate * cp.sum(loss, axis=0)) / current_activation.shape[0])
+def calculate_layers_stress(network_activations, network_stress_propagated, layers_parameters):
+    second_layer_out_stress = cp.matmul(network_stress_propagated, layers_parameters[-1][0].transpose())
+    first_layer_out_activated_stress = relu(network_activations[2], return_derivative=True) * second_layer_out_stress
+    return network_stress_propagated, first_layer_out_activated_stress
+
+def update_layers_parameters(network_activations, layers_stresses, layers_parameters, learning_rate):
+    # Layer 2 axons update
+    first_layer_activated = network_activations[2]
+    second_layer_stress = layers_stresses[0]
+    layers_parameters[-1][0] -= ((learning_rate * cp.matmul(first_layer_activated.transpose(), second_layer_stress)) /network_activations[0].shape[0])
+    # Layer 1 axons update
+    input_neurons = network_activations[0]
+    first_layer_stress = layers_stresses[-1]
+    layers_parameters[0][0] -= ((learning_rate * cp.matmul(cp.array(input_neurons).transpose(), first_layer_stress))/network_activations[0].shape[0])
 
 def training_layers(dataloader, layers_parameters, learning_rate):
     per_batch_stress = []
     for i, (input_batch, expected_batch) in enumerate(dataloader):
         neurons_activations = forward_pass_activations(input_batch, layers_parameters)
-        avg_last_neurons_stress, neurons_stress_to_backpropagate = cross_entropy_loss(neurons_activations[-1], cp.array(expected_batch))
-        layers_stress = calculate_layers_stress(neurons_stress_to_backpropagate, neurons_activations, layers_parameters)
-        update_layers_parameters(neurons_activations, layers_stress, layers_parameters, learning_rate)
-        print(f"Loss each batch {i+1}: {avg_last_neurons_stress}\r", end="", flush=True)
-        per_batch_stress.append(avg_last_neurons_stress)
+        mean_stress, neurons_stress = network_loss_function(neurons_activations[-2], expected_batch)
+        network_neurons_stresses = calculate_layers_stress(neurons_activations, neurons_stress, layers_parameters)
+        update_layers_parameters(neurons_activations, network_neurons_stresses, layers_parameters, learning_rate)
+        print(f"Loss each batch {i+1}: {mean_stress.mean()}\r", end="", flush=True)
+        per_batch_stress.append(mean_stress.mean())
     return cp.mean(cp.array(per_batch_stress))
 
 def test_layers(dataloader, layers_parameters):
@@ -59,13 +55,13 @@ def test_layers(dataloader, layers_parameters):
     model_predictions = []
     for i, (input_image_batch, expected_batch) in enumerate(dataloader):
         expected_batch = cupy_array(expected_batch)
-        model_output = forward_pass_activations(input_image_batch, layers_parameters)[-1]
-        batched_accuracy = cp.array(expected_batch.argmax(-1) == (model_output).argmax(-1)).astype(cp.float16).mean()
+        model_output = forward_pass_activations(input_image_batch, layers_parameters)[-2]
+        batched_accuracy = cp.array(expected_batch == (model_output.argmax(-1))).mean()
         for each in range(100):
-            if model_output[each].argmax(-1) == expected_batch[each].argmax(-1):
-                correct_predictions.append((model_output[each].argmax(-1).item(), expected_batch[each].argmax(-1).item()))
+            if model_output[each].argmax(-1).item() == expected_batch[each].item():
+                correct_predictions.append((model_output[each].argmax(-1).item(), expected_batch[each].item()))
             else:
-                wrong_predictions.append((model_output[each].argmax(-1).item(), expected_batch[each].argmax(-1).item()))
+                wrong_predictions.append((model_output[each].argmax(-1).item(), expected_batch[each].item()))
         print(f"Number of sample: {i+1}\r", end="", flush=True)
         model_predictions.append(batched_accuracy)
     random.shuffle(correct_predictions)
@@ -77,7 +73,7 @@ def test_layers(dataloader, layers_parameters):
     return cp.mean(cp.array(model_predictions)).item()
 
 def model(network_architecture, training_loader, validation_loader, learning_rate, epochs):
-    network_parameters = [backpropagation_parameters_initialization(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
+    network_parameters = [cupy_axon_and_dentrites_init(network_architecture[feature_idx], network_architecture[feature_idx+1]) for feature_idx in range(len(network_architecture)-1)]
     for epoch in range(epochs):
         print(f'EPOCH: {epoch+1}')
         model_stress = training_layers(dataloader=training_loader, layers_parameters=network_parameters, learning_rate=learning_rate)
