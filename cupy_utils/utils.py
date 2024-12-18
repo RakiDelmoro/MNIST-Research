@@ -16,9 +16,13 @@ def axons_initialization(input_feature, output_feature):
     # weights = cp.random.normal(loc=0, scale=0.01, size=(input_feature, output_feature))
     return cupy_array(weights)
 
-def cupy_axons_initialization(input_feature, output_feature):
+def cupy_axons_init(input_feature, output_feature):
     """Copied from Geogre Hotz :)"""
-    return cp.random.uniform(-1., 1., size=(input_feature*output_feature)/cp.sqrt(input_feature*output_feature))
+    return cp.random.uniform(-1., 1., size=(input_feature,output_feature)/cp.sqrt(input_feature*output_feature))
+
+def cupy_axon_and_dentrites_init(input_feature, output_feature):
+    stdv = 1. / cp.sqrt(input_feature*output_feature)
+    return [cp.random.uniform(-stdv, stdv, size=(input_feature,output_feature), dtype=cp.float32), cp.zeros(shape=(output_feature))]
 
 def backpropagation_parameters_initialization(input_feature, output_feature):
     weights = torch.empty((input_feature, output_feature))
@@ -27,7 +31,7 @@ def backpropagation_parameters_initialization(input_feature, output_feature):
     fan_in, _ = torch.nn.init._calculate_fan_in_and_fan_out(weights)
     bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
     torch.nn.init.uniform_(bias, -bound, bound)
-    return cupy_array(weights), cupy_array(bias)
+    return [cupy_array(weights), cupy_array(bias)]
 
 def resiudal_connections_initialization(network_feature_sizes):
     network_connections = []
