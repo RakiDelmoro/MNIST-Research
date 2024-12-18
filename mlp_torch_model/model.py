@@ -3,26 +3,21 @@ from torch import nn
 from torch.nn import functional
 from torch.nn.functional import softmax
 from features import GREEN, RED, RESET
+from tqdm import trange
 
 class MlpNetwork(torch.nn.Module):
-    def __init__(self, network_architecture: list):
+    def __init__(self):
         super().__init__()
         self.device = "cuda"
-        self.network_layers = nn.ModuleList(
-            nn.Sequential(
-                nn.Linear(network_architecture[idx], network_architecture[idx+1], device='cuda'),
-                nn.ReLU() if idx != len(network_architecture)-2 else nn.Softmax(dim=-1)
-            )
-            for idx in range(len(network_architecture)-1)
-        )
+        self.linear1 = nn.Linear(784, 128, device=self.device)
+        self.act = nn.ReLU()
+        self.linear2 = nn.Linear(128, 10, device=self.device)
 
     def forward(self, batch_data):
-        previous_neurons = batch_data
-        neurons_activations = [previous_neurons]
-        for layer in self.network_layers:
-            previous_neurons = layer(previous_neurons)
-            neurons_activations.append(previous_neurons)
-        return neurons_activations
+        x = self.linear1(batch_data)
+        x_act = self.act(x)
+        x_out = self.linear2(x_act)
+        return x_out
 
     def training_run(self, training_loader, loss_function, learning_rate):
         optimizer = torch.optim.SGD(self.parameters(), lr=learning_rate)
@@ -31,13 +26,12 @@ class MlpNetwork(torch.nn.Module):
             input_batch = input_batch.to(self.device)
             expected_batch = expected_batch.to(self.device)
             model_prediction = self.forward(input_batch)
-            loss = loss_function(model_prediction[-1], expected_batch)
+            loss = loss_function(model_prediction, expected_batch)
             per_batch_loss.append(loss.item())
             # Update Parameters
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
         return torch.mean(torch.tensor(per_batch_loss)).item()
 
     def test_run(self, dataloader):
@@ -49,16 +43,16 @@ class MlpNetwork(torch.nn.Module):
         for input_image_batch, expected_batch in dataloader:
             input_image_batch = input_image_batch.to(self.device)
             expected_batch = expected_batch.to(self.device)
-            model_output = self.forward(input_image_batch)[-1]
-            batch_accuracy = (expected_batch.argmax(-1) == model_output.argmax(-1)).float().mean()
-            correct_indices_in_a_batch = torch.where(expected_batch.argmax(-1) == model_output.argmax(-1))[0]
-            wrong_indices_in_a_batch = torch.where(~(expected_batch.argmax(-1) == model_output.argmax(-1)))[0]
+            model_output = self.forward(input_image_batch)
+            batch_accuracy = (expected_batch == model_output.argmax(-1)).float().mean()
+            correct_indices_in_a_batch = torch.where(expected_batch == model_output.argmax(-1))[0]
+            wrong_indices_in_a_batch = torch.where(~(expected_batch == model_output.argmax(-1)))[0]
 
             per_batch_accuracy.append(batch_accuracy.item())
             correct_samples_indices.append(correct_indices_in_a_batch)
             wrong_samples_indices.append(wrong_indices_in_a_batch)
             model_predictions.append(model_output.argmax(-1))
-            expected_model_prediction.append(expected_batch.argmax(-1))
+            expected_model_prediction.append(expected_batch)
 
         correct_samples = torch.concatenate(correct_samples_indices)[list(range(0,len(correct_samples_indices)))]
         wrong_samples = torch.concatenate(wrong_samples_indices)[list(range(0,len(wrong_samples_indices)))]
@@ -73,9 +67,7 @@ class MlpNetwork(torch.nn.Module):
         return torch.mean(torch.tensor(per_batch_accuracy)).item()
 
     def runner(self, epochs, training_loader, validation_loader, loss_function, learning_rate):
-        for epoch in range(epochs):
-            # Training
-            training_loss = self.training_run(training_loader, loss_function, learning_rate)
-            # Test
+        for _ in (t := trange(epochs)):
+            average_stress = self.training_run(training_loader, loss_function, learning_rate)
             accuracy = self.test_run(validation_loader)
-            print(f"EPOCH: {epoch+1} Training Loss: {training_loss} Model Accuracy: {accuracy}")
+            t.set_description(f'Loss: {average_stress:.2f} Accuracy: {accuracy:.2f}')
